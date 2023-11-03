@@ -223,7 +223,7 @@ const FlowBuilderSidePanel: FC<FlowBuilderSidePanelProps> = ({ className }) => {
       <Transition
         show={!!isOpen}
         as="div"
-        className={`h-[calc(100vh-108px)] min-w-[360px] w-[360px] fixed  right-[-100%] bg-white border-l-[1px] border-[#E5E7EB] flex flex-col justify-between overflow-hidden ${
+        className={`h-[calc(100vh-108px)] min-w-[360px] w-[360px] fixed bg-white border-l-[1px] border-[#E5E7EB] flex flex-col justify-between overflow-hidden ${
           className ? className : ""
         }`}
         enter="transition-all duration-300"
