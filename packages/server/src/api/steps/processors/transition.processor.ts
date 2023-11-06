@@ -2,7 +2,14 @@
 import { HttpException, HttpStatus, Inject, Logger } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
+import {
+  Processor,
+  WorkerHost,
+  InjectQueue,
+  OnQueueEvent,
+  QueueEventsListener,
+  OnWorkerEvent,
+} from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { cpus } from 'os';
 import { CustomComponentAction, StepType } from '../types/step.interface';
@@ -33,7 +40,7 @@ import { RedlockService } from '@/api/redlock/redlock.service';
 import * as _ from 'lodash';
 import { Lock } from 'redlock';
 import { PostHog } from 'posthog-node';
-
+import * as Sentry from '@sentry/node';
 
 @Injectable()
 @Processor('transition', { concurrency: cpus().length })
@@ -1417,7 +1424,7 @@ export class TransitionProcessor extends WorkerHost {
     queryRunner: QueryRunner,
     transactionSession: mongoose.mongo.ClientSession,
     event?: string
-  ) { }
+  ) {}
 
   /**
    *
@@ -1530,8 +1537,8 @@ export class TransitionProcessor extends WorkerHost {
   }
 
   // TODO
-  async handleABTest(job: Job<any, any, string>) { }
-  async handleRandomCohortBranch(job: Job<any, any, string>) { }
+  async handleABTest(job: Job<any, any, string>) {}
+  async handleRandomCohortBranch(job: Job<any, any, string>) {}
 
   // @OnWorkerEvent('active')
   // onActive(job: Job<any, any, any>, prev: string) {
@@ -1611,4 +1618,13 @@ export class TransitionProcessor extends WorkerHost {
   //     jobId
   //   );
   // }
+
+  @OnWorkerEvent('failed')
+  async onFailed(job: Job, error: Error, prev?: string) {
+    Sentry.withScope((scope) => {
+      scope.setTag('job_id', job.id);
+      scope.setTag('processor', TransitionProcessor.name);
+      Sentry.captureException(error);
+    });
+  }
 }
