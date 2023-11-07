@@ -17,6 +17,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import { randomUUID } from 'crypto';
 import { Step } from '../steps/entities/step.entity';
+import dayjs from 'dayjs';
 
 export enum ClickHouseEventProvider {
   MAILGUN = 'mailgun',
@@ -65,9 +66,16 @@ export class WebhooksService {
   });
 
   public insertClickHouseMessages = async (values: ClickHouseMessage[]) => {
+    const valuesFormatted = values.map((value) => {
+      value.createdAt = dayjs(value.createdAt, {
+        format: 'ddd, DD MMM YYYY HH:mm:ss [GMT]',
+      }).format('YYYY-MM-DD HH:mm:ss');
+      return value;
+    });
+
     await this.clickHouseClient.insert<ClickHouseMessage>({
       table: 'message_status',
-      values,
+      values: valuesFormatted,
       format: 'JSONEachRow',
     });
   };
