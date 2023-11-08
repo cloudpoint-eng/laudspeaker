@@ -26,6 +26,9 @@ import { ModalsModule } from '../modals/modals.module';
 import { WebsocketsModule } from '@/websockets/websockets.module';
 import { RedlockModule } from '../redlock/redlock.module';
 import { RedlockService } from '../redlock/redlock.service';
+import { AudiencesHelper } from '../audiences/audiences.helper';
+import { AudiencesModule } from '../audiences/audiences.module';
+import { SegmentsModule } from '../segments/segments.module';
 
 @Module({
   imports: [
@@ -50,9 +53,17 @@ import { RedlockService } from '../redlock/redlock.service';
     forwardRef(() => ModalsModule),
     forwardRef(() => WebsocketsModule),
     forwardRef(() => RedlockModule),
+    forwardRef(() => SegmentsModule),
     SlackModule,
+    AudiencesModule,
   ],
-  providers: [StepsService, JobsService, TransitionProcessor, RedlockService],
+  providers: [
+    StepsService,
+    JobsService,
+    TransitionProcessor,
+    RedlockService,
+    AudiencesHelper,
+  ],
   controllers: [StepsController],
   exports: [StepsService],
 })

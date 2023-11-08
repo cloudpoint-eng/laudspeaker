@@ -41,6 +41,7 @@ import * as _ from 'lodash';
 import { Lock } from 'redlock';
 import { PostHog } from 'posthog-node';
 import * as Sentry from '@sentry/node';
+import { AudiencesHelper } from '../../audiences/audiences.helper';
 
 @Injectable()
 @Processor('transition', { concurrency: cpus().length })
@@ -66,7 +67,8 @@ export class TransitionProcessor extends WorkerHost {
     @Inject(ModalsService) private modalsService: ModalsService,
     @Inject(SlackService) private slackService: SlackService,
     @InjectModel(Customer.name) public customerModel: Model<CustomerDocument>,
-    @Inject(RedlockService) private redlockService: RedlockService
+    @Inject(RedlockService) private redlockService: RedlockService,
+    private readonly audiencesHelper: AudiencesHelper
   ) {
     super();
   }
@@ -148,7 +150,7 @@ export class TransitionProcessor extends WorkerHost {
         case StepType.AB_TEST:
           break;
         case StepType.ATTRIBUTE_BRANCH:
-          this.handleAttributeBranch(
+          await this.handleAttributeBranch(
             job.data.ownerID,
             job.data.step.id,
             job.data.session,
@@ -700,7 +702,9 @@ export class TransitionProcessor extends WorkerHost {
           eventProvider: owner.emailProvider,
         });
         this.debug(`${JSON.stringify(ret)}`, this.handleMessage.name, session);
-        await this.webhooksService.insertClickHouseMessages(ret);
+        if (ret && ret.length > 0) {
+          await this.webhooksService.insertClickHouseMessages(ret);
+        }
         if (owner.emailProvider === 'free3') await owner.save();
         break;
       case TemplateType.FIREBASE:
@@ -1424,7 +1428,164 @@ export class TransitionProcessor extends WorkerHost {
     queryRunner: QueryRunner,
     transactionSession: mongoose.mongo.ClientSession,
     event?: string
-  ) {}
+  ) {
+    const owner = await queryRunner.manager.findOne(Account, {
+      where: { id: ownerID },
+    });
+
+    const currentStep = await queryRunner.manager.findOne(Step, {
+      where: {
+        id: stepID,
+        type: StepType.ATTRIBUTE_BRANCH,
+      },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (
+      !_.find(currentStep.customers, (customer) => {
+        return JSON.parse(customer).customerID === customerID;
+      })
+    ) {
+      await lock.release();
+      this.warn(
+        `${JSON.stringify({ warning: 'Releasing lock' })}`,
+        this.handleMessage.name,
+        session,
+        owner.email
+      );
+      this.warn(
+        `${JSON.stringify({
+          warning: 'Customer not in step',
+          customerID,
+          currentStep,
+        })}`,
+        this.handleCustomComponent.name,
+        session,
+        owner.email
+      );
+      return;
+    }
+
+    let branch: number;
+    const conditionEvalutation: boolean[] = [];
+    const customer = await this.customersService.findById(owner, customerID);
+    for (
+      let conditionIndex = 0;
+      conditionIndex < currentStep.metadata.branches.length ?? 0;
+      conditionIndex++
+    ) {
+      // {"branches": [{"index": 0, "groups": [{"relation": "and", "attributes": [{"key": "totalSpentAmount", "value": "5", "keyType": "Number", "comparisonType": "is less than"}, {"key": "name", "value": "11", "keyType": "String", "comparisonType": "is equal to"}]}], "relation": "or"}, {"index": 1, "groups": [{"relation": "and", "attributes": [{"key": "name", "value": "te", "keyType": "String", "comparisonType": "is equal to"}]}], "relation": "or"}]}
+      const branch = currentStep.metadata.branches[conditionIndex];
+      const groups = branch.groups;
+      const groupEvaluation: boolean[] = [];
+
+      // Evaluate each group, if groups are joined by OR, then if any group is true, the condition is true
+      // If groups are joined by AND, then if any group is false, the condition is false
+      for (let groupIndex = 0; groupIndex < groups.length ?? 0; groupIndex++) {
+        const group = groups[groupIndex];
+        const attributes = group.attributes;
+        const attributeEvaluation: boolean[] = [];
+
+        // Evaluate each attribute, if attributes are joined by OR, then if any attribute is true, the group is true
+        // If attributes are joined by AND, then if any attribute is false, the group is false
+        for (
+          let attributeIndex = 0;
+          attributeIndex < attributes.length ?? 0;
+          attributeIndex++
+        ) {
+          const attribute = attributes[attributeIndex];
+          const attributeValue = attributes[attributeIndex].value;
+          const attributeKey = attributes[attributeIndex].key;
+          const attributeKeyType = attributes[attributeIndex].keyType;
+          const attributeComparisonType =
+            attributes[attributeIndex].comparisonType;
+          const matches: boolean = ['exists', 'doesNotExist'].includes(
+            attributeComparisonType
+          )
+            ? this.audiencesHelper.operableCompare(
+                customer[attributeKey],
+                attributeComparisonType
+              )
+            : await this.audiencesHelper.conditionalCompare(
+                customer[attributeKey],
+                attributeValue,
+                attributeComparisonType
+              );
+        }
+        groupEvaluation.push(
+          group.relation === 'or'
+            ? attributeEvaluation.includes(true)
+            : !attributeEvaluation.includes(false)
+        );
+      }
+      conditionEvalutation.push(
+        branch.relation === 'or'
+          ? groupEvaluation.includes(true)
+          : !groupEvaluation.includes(false)
+      ); 
+    }
+
+    if (conditionEvalutation.includes(true)) {
+      branch = conditionEvalutation.indexOf(true);
+    }
+
+    const nextStep = await queryRunner.manager.findOne(Step, {
+      where: {
+        id: currentStep.metadata.branches.filter((branchItem) => {
+          return branchItem.index === branch;
+        })[0].destination,
+      },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (nextStep) {
+      // Destination exists, move customer into destination
+      nextStep.customers.push(
+        JSON.stringify({
+          customerID,
+          timestamp: Temporal.Now.instant().toString(),
+        })
+      );
+      _.remove(currentStep.customers, (customer) => {
+        return JSON.parse(customer).customerID === customerID;
+      });
+      await queryRunner.manager.save(currentStep);
+      const newNext = await queryRunner.manager.save(nextStep);
+
+      if (
+        newNext.type !== StepType.TIME_DELAY &&
+        newNext.type !== StepType.TIME_WINDOW &&
+        newNext.type !== StepType.WAIT_UNTIL_BRANCH
+      )
+        await this.transitionQueue.add(newNext.type, {
+          ownerID,
+          step: newNext,
+          session: session,
+          customerID,
+          lock,
+          event,
+        });
+      else {
+        await lock.release();
+        this.warn(
+          `${JSON.stringify({ warning: 'Releasing lock' })}`,
+          this.handleTimeDelay.name,
+          session,
+          owner.email
+        );
+      }
+    } else {
+      // Destination does not exist, customer has stopped moving so
+      // we can release lock
+      await lock.release();
+      this.warn(
+        `${JSON.stringify({ warning: 'Releasing lock' })}`,
+        this.handleTimeDelay.name,
+        session,
+        owner.email
+      );
+    }
+  }
 
   /**
    *
