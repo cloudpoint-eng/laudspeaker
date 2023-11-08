@@ -31,16 +31,18 @@ services:
         condition: service_started
     links: 
         - mongo
-    networks:
+    networks: 
       - laudspeaker_default
 
   redis:
     image: redis:alpine
-    command: redis-server
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
       - "6379:6379"
     environment:
       - REDIS_REPLICATION_MODE=master
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - laudspeaker_default
 
