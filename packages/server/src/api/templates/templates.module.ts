@@ -58,8 +58,9 @@ import { Step } from '../steps/entities/step.entity';
     forwardRef(() => WebhooksModule),
     ModalsModule,
     forwardRef(() => WebsocketsModule),
+    forwardRef(() => WebhooksModule),
   ],
-  providers: [TemplatesService, WebhooksService],
+  providers: [TemplatesService],
   controllers: [TemplatesController],
   exports: [TemplatesService],
 })

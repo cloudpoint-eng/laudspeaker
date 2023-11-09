@@ -32,6 +32,7 @@ import { RedlockService } from '../redlock/redlock.service';
 import { Lock } from 'redlock';
 import * as _ from 'lodash';
 import * as Sentry from '@sentry/node';
+import { SENDGRID_EVENTS } from '../webhooks/webhooks.service';
 
 @Injectable()
 @Processor('events', {

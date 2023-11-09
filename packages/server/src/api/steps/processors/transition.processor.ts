@@ -721,6 +721,12 @@ export class TransitionProcessor extends WorkerHost {
           tags: filteredTags,
           templateID: template.id,
           eventProvider: owner.emailProvider,
+          metadata:
+            nextStep && nextStep.type === StepType.TRACKER
+              ? {
+                  trackerID: nextStep.metadata.humanReadableName,
+                }
+              : undefined,
         });
         this.debug(`${JSON.stringify(ret)}`, this.handleMessage.name, session);
         if (ret && ret.length > 0) {

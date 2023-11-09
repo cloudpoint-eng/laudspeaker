@@ -1,8 +1,13 @@
-import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  forwardRef,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PublicKey, Signature, Ecdsa } from 'starkbank-ecdsa';
-import { Audience } from '../audiences/entities/audience.entity';
 import { Account } from '../accounts/entities/accounts.entity';
 import { createHmac } from 'crypto';
 import {
@@ -18,6 +23,8 @@ import FormData from 'form-data';
 import { randomUUID } from 'crypto';
 import { Step } from '../steps/entities/step.entity';
 import dayjs from 'dayjs';
+import { EventsService } from '../events/events.service';
+import { AnalyticsProviderTypes } from '../steps/types/step.interface';
 
 export enum ClickHouseEventProvider {
   MAILGUN = 'mailgun',
@@ -41,6 +48,8 @@ export interface ClickHouseMessage {
   userId: string;
   processed: boolean;
 }
+
+export const SENDGRID_EVENTS = ['clicked', 'opened'];
 
 @Injectable()
 export class WebhooksService {
@@ -91,7 +100,9 @@ export class WebhooksService {
     @InjectRepository(Step)
     private stepRepository: Repository<Step>,
     @InjectRepository(Account)
-    private accountRepository: Repository<Account>
+    private accountRepository: Repository<Account>,
+    @Inject(forwardRef(() => EventsService))
+    private readonly eventsService: EventsService
   ) {
     const session = randomUUID();
     (async () => {
@@ -209,6 +220,12 @@ export class WebhooksService {
     if (!validSignature) throw new ForbiddenException('Invalid signature');
 
     const messagesToInsert: ClickHouseMessage[] = [];
+    const trackerEventPayloads: {
+      event: string;
+      accountId: string;
+      trackerId: string;
+      customerId: string;
+    }[] = [];
 
     for (const item of data) {
       const {
@@ -242,8 +259,30 @@ export class WebhooksService {
       };
 
       messagesToInsert.push(clickHouseRecord);
+
+      if (item?.trackerId && SENDGRID_EVENTS.includes(clickHouseRecord.event)) {
+        trackerEventPayloads.push({
+          event: clickHouseRecord.event,
+          accountId: clickHouseRecord.userId,
+          trackerId: item.trackerId,
+          customerId: clickHouseRecord.customerId,
+        });
+      }
     }
     await this.insertClickHouseMessages(messagesToInsert);
+
+    if (trackerEventPayloads.length > 0) {
+      await Promise.all(
+        trackerEventPayloads.map((payload) =>
+          this.publishTrackerEventBySendgridEvent(
+            payload.event,
+            payload.accountId,
+            payload.trackerId,
+            payload.customerId
+          )
+        )
+      );
+    }
   }
 
   public async processTwilioData(
@@ -422,5 +461,32 @@ export class WebhooksService {
       );
       return Promise.reject(err);
     }
+  }
+
+  private async publishTrackerEventBySendgridEvent(
+    sendgridEvent: string,
+    accountId: string,
+    trackerId: string,
+    customerId: string
+  ) {
+    const session = randomUUID();
+    const account = await this.accountRepository.findOneBy({ id: accountId });
+    if (!account) return;
+
+    await this.eventsService.customPayload(
+      account,
+      {
+        correlationKey: '_id',
+        correlationValue: customerId,
+        source: AnalyticsProviderTypes.TRACKER,
+        event: sendgridEvent,
+        payload: {
+          trackerId,
+        },
+      },
+      session
+    );
+
+    return;
   }
 }

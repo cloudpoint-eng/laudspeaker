@@ -3,6 +3,7 @@ import {
   Module,
   NestModule,
   RequestMethod,
+  forwardRef,
 } from '@nestjs/common';
 import { WebhooksService } from './webhooks.service';
 import { WebhooksController } from './webhooks.controller';
@@ -13,6 +14,8 @@ import { WebhooksProcessor } from './webhooks.processor';
 import { BullModule } from '@nestjs/bullmq';
 import { TemplatesModule } from '../templates/templates.module';
 import { Step } from '../steps/entities/step.entity';
+import { EventsModule } from '../events/events.module';
+import { SlackModule } from '../slack/slack.module';
 
 @Module({
   imports: [
@@ -21,6 +24,8 @@ import { Step } from '../steps/entities/step.entity';
       name: 'webhooks',
     }),
     TemplatesModule,
+    forwardRef(() => EventsModule),
+    forwardRef(() => SlackModule),
   ],
   providers: [WebhooksService, WebhooksProcessor],
   controllers: [WebhooksController],

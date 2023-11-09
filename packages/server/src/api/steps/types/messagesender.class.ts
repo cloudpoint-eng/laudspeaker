@@ -49,7 +49,8 @@ export class MessageSender {
         job.email,
         job.domain,
         job.trackingEmail,
-        job.cc
+        job.cc,
+        job.metadata
       );
     },
     [MessageType.SMS]: async (job) => {
@@ -149,7 +150,8 @@ export class MessageSender {
     email?: string,
     domain?: string,
     trackingEmail?: string,
-    cc?: string[]
+    cc?: string[],
+    metadata?: { trackerID?: string } | undefined
   ): Promise<ClickHouseMessage[]> {
     if (!to) {
       return;
@@ -204,6 +206,10 @@ export class MessageSender {
                 stepId: stepID,
                 customerId: customerID,
                 templateId: templateID,
+                ...(metadata &&
+                  metadata?.trackerID && {
+                    trackerId: metadata.trackerID,
+                  }),
               },
               cc: cc,
             },

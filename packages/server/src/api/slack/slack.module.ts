@@ -15,8 +15,8 @@ import {
   CustomerKeysSchema,
 } from '../customers/schemas/customer-keys.schema';
 import { CustomersModule } from '../customers/customers.module';
-import { WebhooksService } from '../webhooks/webhooks.service';
 import { Step } from '../steps/entities/step.entity';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -35,9 +35,10 @@ import { Step } from '../steps/entities/step.entity';
       { name: CustomerKeys.name, schema: CustomerKeysSchema },
     ]),
     forwardRef(() => CustomersModule),
+    forwardRef(() => WebhooksModule),
   ],
   controllers: [SlackController],
-  providers: [SlackProcessor, SlackService, WebhooksService],
+  providers: [SlackProcessor, SlackService],
   exports: [SlackService],
 })
 export class SlackModule {}

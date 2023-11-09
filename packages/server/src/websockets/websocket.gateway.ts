@@ -18,6 +18,7 @@ import { CustomersService } from '../api/customers/customers.service';
 import { EventsService } from '../api/events/events.service';
 import {
   ClickHouseEventProvider,
+  SENDGRID_EVENTS,
   WebhooksService,
 } from '@/api/webhooks/webhooks.service';
 import {
@@ -529,6 +530,7 @@ export class WebsocketGateway implements OnGatewayConnection {
     eventString: string,
     trackerID: string
   ): Promise<boolean> {
+    if (SENDGRID_EVENTS.includes(eventString)) return true; // Sendgrid events are not tracked
     const sockets = await this.server.fetchSockets();
 
     const customerSocket = sockets.find(
