@@ -661,6 +661,27 @@ export class TransitionProcessor extends WorkerHost {
 
     switch (template.type) {
       case TemplateType.EMAIL:
+        if (!customer.phEmail && !customer.email) {
+          await lock.release();
+          this.warn(
+            `${JSON.stringify({ warning: 'Releasing lock' })}`,
+            this.handleMessage.name,
+            session,
+            owner.email
+          );
+
+          this.warn(
+            `${JSON.stringify({
+              warning: 'Customer does not have an email',
+              customerID,
+              currentStep,
+            })}`,
+            this.handleCustomComponent.name,
+            session,
+            owner.email
+          );
+          return;
+        }
         if (owner.emailProvider === 'free3') {
           if (owner.freeEmailsCount === 0)
             throw new HttpException(
@@ -904,7 +925,7 @@ export class TransitionProcessor extends WorkerHost {
 
     const nextStep = await queryRunner.manager.findOne(Step, {
       where: {
-        id: currentStep.metadata.destination,
+        id: currentStep.metadata?.destination ?? '',
       },
       lock: { mode: 'pessimistic_write' },
     });
