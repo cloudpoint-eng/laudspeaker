@@ -5,10 +5,18 @@ import {
   AttributeQueryStatement,
   ComparisonType,
   ConditionalSegmentsSettings,
+  EventQueryAdditionalProperty,
   EventQueryStatement,
-  MessageEventQueryStatement,
+  MessageEmailEventCondition,
+  MessageEventQuery,
+  MessageFromJourney,
+  MessageGeneralComparison,
+  MessageInAPPEventCondition,
+  MessagePushEventCondition,
+  MessageSMSEventCondition,
   ObjectKeyComparisonType,
   PerformedType,
+  Query,
   QueryStatement,
   QueryStatementType,
   QueryType,
@@ -33,6 +41,7 @@ import { isBefore } from "date-fns";
 import { useDispatch } from "react-redux";
 import { SegmentsSettings } from "reducers/segment.reducer";
 import { capitalize } from "lodash";
+import Select from "components/Elements/Selectv2";
 
 interface FilterBuilderProps {
   settings: ConditionalSegmentsSettings | SegmentsSettings;
@@ -45,33 +54,47 @@ interface FilterBuilderProps {
   ) => void;
 }
 
-enum QueryStatementError {
+enum QueryStatementErrors {
   NO_ATTRIBUTE_NAME,
   NO_SEGMENT_SELECTED,
   NO_EVENT_NAME_SELECTED,
   NO_MESSAGE_NAME_SELECTED,
   TIME_SHOULD_BE_SELECTED,
   TIME_RANGE_INCORRECT,
+  JOURNEY_TAG_SHOULD_BE_SELECTED,
   NO_OBJECT_KEY,
+  EVENT_PROPERTIES_ERRORS,
 }
 
-const queryStatementErrorToMessageMap: Record<QueryStatementError, string> = {
-  [QueryStatementError.NO_ATTRIBUTE_NAME]: "Attribute must be defined",
-  [QueryStatementError.NO_SEGMENT_SELECTED]: "Segment must be selected",
-  [QueryStatementError.NO_EVENT_NAME_SELECTED]: "Event name must be selected",
-  [QueryStatementError.TIME_RANGE_INCORRECT]: "Time range is incorrect",
-  [QueryStatementError.TIME_SHOULD_BE_SELECTED]:
+interface QueryStatementError {
+  type: QueryStatementErrors;
+  eventPropertyErrors: QueryStatementErrors[][];
+}
+
+const queryStatementErrorToMessageMap: Record<QueryStatementErrors, string> = {
+  [QueryStatementErrors.NO_ATTRIBUTE_NAME]: "Attribute must be defined",
+  [QueryStatementErrors.NO_SEGMENT_SELECTED]: "Segment must be selected",
+  [QueryStatementErrors.NO_EVENT_NAME_SELECTED]: "Event name must be selected",
+  [QueryStatementErrors.TIME_RANGE_INCORRECT]: "Time range is incorrect",
+  [QueryStatementErrors.TIME_SHOULD_BE_SELECTED]:
     "All time variables should be filled",
-  [QueryStatementError.NO_MESSAGE_NAME_SELECTED]:
+  [QueryStatementErrors.NO_MESSAGE_NAME_SELECTED]:
     "Message name have to be selected",
-  [QueryStatementError.NO_OBJECT_KEY]: "Object key should be defined",
+  [QueryStatementErrors.NO_OBJECT_KEY]: "Object key should be defined",
+  [QueryStatementErrors.EVENT_PROPERTIES_ERRORS]:
+    "Event properties not fulfilled",
+  [QueryStatementErrors.JOURNEY_TAG_SHOULD_BE_SELECTED]:
+    "Journey tag should be selected",
 };
 
 const corelationTypeToDefaultSettings: {
   [QueryStatementType.ATTRIBUTE]: AttributeQueryStatement;
   [QueryStatementType.SEGMENT]: SegmentQueryStatement;
   [QueryStatementType.EVENT]: EventQueryStatement;
-  [QueryStatementType.MessageEvent]: MessageEventQueryStatement;
+  [QueryStatementType.EMAIL]: MessageEventQuery;
+  [QueryStatementType.SMS]: MessageEventQuery;
+  [QueryStatementType.PUSH]: MessageEventQuery;
+  [QueryStatementType.InAPP]: MessageEventQuery;
 } = {
   [QueryStatementType.ATTRIBUTE]: {
     type: QueryStatementType.ATTRIBUTE,
@@ -92,14 +115,91 @@ const corelationTypeToDefaultSettings: {
     eventName: "",
     value: 1,
     time: undefined,
+    additionalProperties: {
+      comparison: QueryType.ALL,
+      properties: [],
+    },
   },
-  [QueryStatementType.MessageEvent]: {
-    type: QueryStatementType.MessageEvent,
-    value: 0,
-    eventId: "",
-    messageId: "",
-    performedType: PerformedType.HasPerformed,
+  [QueryStatementType.EMAIL]: {
+    type: QueryStatementType.EMAIL,
+    eventCondition: MessageEmailEventCondition.RECEIVED,
+    from: MessageFromJourney.ANY,
+    fromSpecificJourney: "ANY",
+    happenCondition: MessageGeneralComparison.HAS,
+    tag: undefined,
+    time: undefined,
   },
+  [QueryStatementType.SMS]: {
+    type: QueryStatementType.SMS,
+    eventCondition: MessageSMSEventCondition.RECEIVED,
+    from: MessageFromJourney.ANY,
+    fromSpecificJourney: "ANY",
+    happenCondition: MessageGeneralComparison.HAS,
+    tag: undefined,
+    time: undefined,
+  },
+  [QueryStatementType.PUSH]: {
+    type: QueryStatementType.PUSH,
+    eventCondition: MessagePushEventCondition.RECEIVED,
+    from: MessageFromJourney.ANY,
+    fromSpecificJourney: "ANY",
+    happenCondition: MessageGeneralComparison.HAS,
+    tag: undefined,
+    time: undefined,
+  },
+  [QueryStatementType.InAPP]: {
+    type: QueryStatementType.InAPP,
+    eventCondition: MessageInAPPEventCondition.RECEIVED,
+    from: MessageFromJourney.ANY,
+    fromSpecificJourney: "ANY",
+    happenCondition: MessageGeneralComparison.HAS,
+    tag: undefined,
+    time: undefined,
+  },
+};
+
+const messageEventsCorelation: Record<
+  | QueryStatementType.EMAIL
+  | QueryStatementType.SMS
+  | QueryStatementType.PUSH
+  | QueryStatementType.InAPP,
+  {
+    key:
+      | MessageEmailEventCondition
+      | MessageSMSEventCondition
+      | MessagePushEventCondition
+      | MessageInAPPEventCondition;
+    title: string;
+  }[]
+> = {
+  [QueryStatementType.EMAIL]: Object.values(MessageEmailEventCondition).map(
+    (el) => ({
+      key: el,
+      title: "been " + el,
+    })
+  ),
+  [QueryStatementType.SMS]: [
+    {
+      key: MessageSMSEventCondition.RECEIVED,
+      title: "been " + MessageSMSEventCondition.RECEIVED,
+    },
+    {
+      key: MessageSMSEventCondition.CLICK_LINK,
+      title: "been clicked sms link",
+    },
+  ],
+  [QueryStatementType.PUSH]: Object.values(MessagePushEventCondition).map(
+    (el) => ({
+      key: el,
+      title: "been " + el,
+    })
+  ),
+  [QueryStatementType.InAPP]: Object.values(MessageInAPPEventCondition).map(
+    (el) => ({
+      key: el,
+      title: "been " + el,
+    })
+  ),
 };
 
 const FilterBuilder: FC<FilterBuilderProps> = ({
@@ -118,6 +218,7 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
 
   const [segments, setSegments] = useState<Segment[]>([]);
   const [keysQuery, setKeysQuery] = useState("");
+  const [journeySearchQuery, setJourneySearchQuery] = useState("");
   const [possibleKeys, setPossibleKeys] = useState<
     {
       key: string;
@@ -219,6 +320,56 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
     });
   };
 
+  const handleChangeEventProperty = (
+    i: number,
+    j: number,
+    property: EventQueryAdditionalProperty
+  ) => {
+    const newStatements = [...settings.query.statements];
+
+    const statement = newStatements[i] as EventQueryStatement;
+
+    const newProperties = [...statement.additionalProperties.properties];
+
+    newProperties[j] = { ...property };
+
+    newStatements[i] = {
+      ...statement,
+      additionalProperties: {
+        ...statement.additionalProperties,
+        properties: [...newProperties],
+      },
+    };
+
+    onSettingsChange({
+      ...settings,
+      query: { ...settings.query, statements: newStatements },
+    });
+  };
+
+  const handleDeleteEventProperty = (i: number, j: number) => {
+    const newStatements = [...settings.query.statements];
+
+    const statement = newStatements[i] as EventQueryStatement;
+
+    const newProperties = [...statement.additionalProperties.properties];
+
+    newProperties.splice(j, 1);
+
+    newStatements[i] = {
+      ...statement,
+      additionalProperties: {
+        ...statement.additionalProperties,
+        properties: [...newProperties],
+      },
+    };
+
+    onSettingsChange({
+      ...settings,
+      query: { ...settings.query, statements: newStatements },
+    });
+  };
+
   const handleUngroup = (i: number) => (statements: QueryStatement[]) => {
     const newStatements = [...settings.query.statements];
 
@@ -236,18 +387,24 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
   const statementsErrors: QueryStatementError[][] = [];
 
   for (const statement of settings.query.statements) {
-    const statementErrors = [];
+    const statementErrors: QueryStatementError[] = [];
 
     if (statement.type === QueryStatementType.ATTRIBUTE) {
       if (!statement.key)
-        statementErrors.push(QueryStatementError.NO_ATTRIBUTE_NAME);
+        statementErrors.push({
+          type: QueryStatementErrors.NO_ATTRIBUTE_NAME,
+          eventPropertyErrors: [],
+        });
 
       if (
         statement.valueType === StatementValueType.OBJECT &&
         statement.comparisonType === ComparisonType.OBJECT_KEY
       ) {
         if (!statement.value)
-          statementErrors.push(QueryStatementError.NO_OBJECT_KEY);
+          statementErrors.push({
+            type: QueryStatementErrors.NO_OBJECT_KEY,
+            eventPropertyErrors: [],
+          });
       }
 
       if (
@@ -255,7 +412,7 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
           statement.value === undefined) ||
         (statement.comparisonType === ComparisonType.AFTER &&
           statement.value === undefined) ||
-        (statement.comparisonType === ComparisonType.BETWEEN &&
+        (statement.comparisonType === ComparisonType.DURING &&
           (statement.value === undefined ||
             statement.subComparisonValue === undefined ||
             isBefore(
@@ -263,39 +420,118 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
               new Date(statement.value)
             )))
       )
-        statementErrors.push(QueryStatementError.TIME_RANGE_INCORRECT);
+        statementErrors.push({
+          type: QueryStatementErrors.TIME_RANGE_INCORRECT,
+          eventPropertyErrors: [],
+        });
     }
 
     if (statement.type === QueryStatementType.SEGMENT && !statement.segmentId) {
-      statementErrors.push(QueryStatementError.NO_SEGMENT_SELECTED);
+      statementErrors.push({
+        type: QueryStatementErrors.NO_SEGMENT_SELECTED,
+        eventPropertyErrors: [],
+      });
     }
 
     if (statement.type === QueryStatementType.EVENT) {
       if (
         (statement.time?.comparisonType === ComparisonType.BEFORE &&
-          statement.time.timeBefore === undefined) ||
+          !statement.time.timeBefore) ||
         (statement.time?.comparisonType === ComparisonType.AFTER &&
-          statement.time.timeAfter === undefined) ||
-        (statement.time?.comparisonType === ComparisonType.BETWEEN &&
-          (statement.time?.timeBefore === undefined ||
-            statement.time?.timeAfter === undefined ||
+          !statement.time.timeAfter) ||
+        (statement.time?.comparisonType === ComparisonType.DURING &&
+          (!statement.time?.timeBefore ||
+            !statement.time?.timeAfter ||
             isBefore(
               new Date(statement.time.timeBefore),
               new Date(statement.time.timeAfter)
             )))
       )
-        statementErrors.push(QueryStatementError.TIME_RANGE_INCORRECT);
+        statementErrors.push({
+          type: QueryStatementErrors.TIME_RANGE_INCORRECT,
+          eventPropertyErrors: [],
+        });
 
       if (!statement.eventName)
-        statementErrors.push(QueryStatementError.NO_EVENT_NAME_SELECTED);
+        statementErrors.push({
+          type: QueryStatementErrors.NO_EVENT_NAME_SELECTED,
+          eventPropertyErrors: [],
+        });
+
+      const eventPropertiesErrors: QueryStatementErrors[][] = [];
+
+      statement.additionalProperties.properties.forEach((property) => {
+        const errors: QueryStatementErrors[] = [];
+        if (!property.key) errors.push(QueryStatementErrors.NO_ATTRIBUTE_NAME);
+
+        if (
+          property.valueType === StatementValueType.OBJECT &&
+          property.comparisonType === ComparisonType.OBJECT_KEY
+        ) {
+          if (!property.value) errors.push(QueryStatementErrors.NO_OBJECT_KEY);
+        }
+
+        if (
+          (property.comparisonType === ComparisonType.BEFORE &&
+            !property.value) ||
+          (property.comparisonType === ComparisonType.AFTER &&
+            !property.value) ||
+          (property.comparisonType === ComparisonType.DURING &&
+            (!property.value ||
+              !property.subComparisonValue ||
+              isBefore(
+                new Date(property.subComparisonValue),
+                new Date(property.value)
+              )))
+        )
+          errors.push(QueryStatementErrors.TIME_RANGE_INCORRECT);
+
+        eventPropertiesErrors.push(errors);
+      });
+
+      if (
+        eventPropertiesErrors.length &&
+        eventPropertiesErrors.some((evPropError) => evPropError.length !== 0)
+      )
+        statementErrors.push({
+          type: QueryStatementErrors.EVENT_PROPERTIES_ERRORS,
+          eventPropertyErrors: eventPropertiesErrors,
+        });
     }
 
-    if (statement.type === QueryStatementType.MessageEvent) {
-      if (!statement.messageId)
-        statementErrors.push(QueryStatementError.NO_MESSAGE_NAME_SELECTED);
+    if (
+      [
+        QueryStatementType.EMAIL,
+        QueryStatementType.SMS,
+        QueryStatementType.PUSH,
+        QueryStatementType.InAPP,
+      ].includes(statement.type as QueryStatementType)
+    ) {
+      const specStatement = { ...(statement as MessageEventQuery) };
 
-      if (!statement.eventId)
-        statementErrors.push(QueryStatementError.NO_EVENT_NAME_SELECTED);
+      if (specStatement.fromSpecificJourney !== "ANY" && !specStatement.tag)
+        statementErrors.push({
+          type: QueryStatementErrors.JOURNEY_TAG_SHOULD_BE_SELECTED,
+          eventPropertyErrors: [],
+        });
+
+      if (
+        (specStatement.time?.comparisonType === ComparisonType.BEFORE &&
+          !specStatement.time.timeBefore) ||
+        (specStatement.time?.comparisonType === ComparisonType.AFTER &&
+          !specStatement.time.timeAfter) ||
+        (specStatement.time?.comparisonType === ComparisonType.DURING &&
+          (!specStatement.time?.timeBefore ||
+            !specStatement.time?.timeAfter ||
+            isBefore(
+              new Date(specStatement.time.timeBefore),
+              new Date(specStatement.time.timeAfter)
+            )))
+      )
+        statementErrors.push({
+          type: QueryStatementErrors.TIME_RANGE_INCORRECT,
+          eventPropertyErrors: [],
+        });
     }
 
     statementsErrors.push(statementErrors);
@@ -319,7 +555,7 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
   }, [statementsErrors]);
 
   return (
-    <div className="flex w-full flex-col gap-[10px]">
+    <div className="flex w-full flex-col gap-[10px] pr-[10px]">
       <div className="flex relative w-full gap-[10px] items-center">
         <div>
           <select
@@ -375,30 +611,62 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                 {/* @ts-ignore */}
                 {!statement?.isSubBuilderChild && (
                   <div>
-                    <select
+                    <Select
                       value={statement.type}
-                      onChange={(e) =>
+                      onChange={(el) => {
                         handleChangeStatement(
                           i,
                           // @ts-ignore
-                          corelationTypeToDefaultSettings?.[e.target.value] ||
-                            statement
-                        )
-                      }
-                      className={`${
-                        statement.type === QueryStatementType.MessageEvent
-                          ? "w-[140px]"
-                          : "w-[100px]"
-                      } px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] placeholder:font-inter placeholder:font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:text-[#9CA3AF] rounded-[2px]`}
-                    >
-                      {Object.values(QueryStatementType).map(
-                        (comparisonType, j) => (
-                          <option key={j} value={comparisonType}>
-                            {comparisonType}
-                          </option>
-                        )
-                      )}
-                    </select>
+                          corelationTypeToDefaultSettings?.[el] || statement
+                        );
+                      }}
+                      className="min-w-[80px]"
+                      options={[
+                        {
+                          key: "UserDataLabel",
+                          title: "User Data",
+                          groupLabel: true,
+                        },
+                        {
+                          key: QueryStatementType.ATTRIBUTE,
+                          title: QueryStatementType.ATTRIBUTE,
+                        },
+                        {
+                          key: QueryStatementType.EVENT,
+                          title: QueryStatementType.EVENT,
+                        },
+                        {
+                          key: "MessageLabel",
+                          title: "Message",
+                          groupLabel: true,
+                        },
+                        {
+                          key: QueryStatementType.EMAIL,
+                          title: QueryStatementType.EMAIL,
+                        },
+                        {
+                          key: QueryStatementType.PUSH,
+                          title: QueryStatementType.PUSH,
+                        },
+                        {
+                          key: QueryStatementType.SMS,
+                          title: QueryStatementType.SMS,
+                        },
+                        {
+                          key: QueryStatementType.InAPP,
+                          title: QueryStatementType.InAPP,
+                        },
+                        {
+                          key: "OthersLabel",
+                          title: "Others",
+                          groupLabel: true,
+                        },
+                        {
+                          key: QueryStatementType.SEGMENT,
+                          title: QueryStatementType.SEGMENT,
+                        },
+                      ]}
+                    />
                   </div>
                 )}
                 {statement.type === QueryStatementType.ATTRIBUTE ? (
@@ -424,57 +692,41 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                           setKeysQuery(value);
                         }}
                         getKey={(value) => value}
-                        placeholder="attribute name"
+                        placeholder="Attribute name"
                       />
                     </div>
                     <div>
                       <select
-                        value={statement.valueType}
-                        onChange={(e) =>
+                        value={`${statement.valueType};;${statement.comparisonType}`}
+                        className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
+                        onChange={(ev) => {
+                          if (!ev.target.value) return;
+
+                          const [valueType, comparisonValueType] =
+                            ev.target.value.split(";;");
+
                           handleChangeStatement(i, {
                             ...statement,
-                            valueType: e.target.value as StatementValueType,
+                            valueType: valueType as StatementValueType,
                             comparisonType:
-                              valueTypeToComparisonTypesMap[
-                                e.target.value as StatementValueType
-                              ][0],
-                          })
-                        }
-                        className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
+                              comparisonValueType as ComparisonType,
+                          });
+                        }}
                       >
                         {Object.values(StatementValueType).map(
                           (comparisonType, j) => (
-                            <option key={j} value={comparisonType}>
-                              {comparisonType}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </div>
-                    <div>
-                      <select
-                        value={
-                          valueTypeToComparisonTypesMap[
-                            statement.valueType
-                          ].includes(statement.comparisonType)
-                            ? statement.comparisonType
-                            : valueTypeToComparisonTypesMap[
-                                statement.valueType
-                              ][0]
-                        }
-                        onChange={(e) =>
-                          handleChangeStatement(i, {
-                            ...statement,
-                            comparisonType: e.target.value as ComparisonType,
-                          })
-                        }
-                        className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
-                      >
-                        {valueTypeToComparisonTypesMap[statement.valueType].map(
-                          (comparisonType, j) => (
-                            <option key={j} value={comparisonType}>
-                              {comparisonType}
-                            </option>
+                            <optgroup key={j} label={comparisonType}>
+                              {valueTypeToComparisonTypesMap[
+                                comparisonType
+                              ].map((comparisonValueType, k) => (
+                                <option
+                                  key={k}
+                                  value={`${comparisonType};;${comparisonValueType}`}
+                                >
+                                  {comparisonValueType}
+                                </option>
+                              ))}
+                            </optgroup>
                           )
                         )}
                       </select>
@@ -515,7 +767,7 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                       )}
                     </div>
                     {statement.valueType === StatementValueType.DATE &&
-                      statement.comparisonType === ComparisonType.BETWEEN && (
+                      statement.comparisonType === ComparisonType.DURING && (
                         <>
                           -
                           <div>
@@ -606,22 +858,17 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                   <>
                     <div className="flex gap-[10px]">
                       <div>
-                        <select
+                        <FilterBuilderDynamicInput
+                          type={StatementValueType.STRING}
                           value={statement.eventName}
-                          onChange={(e) =>
+                          placeholder="Name"
+                          onChange={(value) =>
                             handleChangeStatement(i, {
                               ...statement,
-
-                              eventName: e.target.value,
+                              eventName: value,
                             })
                           }
-                          className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
-                        >
-                          <option value="" disabled>
-                            event name
-                          </option>
-                          <option value="text">test</option>
-                        </select>
+                        />
                       </div>
                       <div className="flex items-center">
                         <select
@@ -667,47 +914,30 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                         </span>
                       </div>
                     </div>
-                    {statement.time === undefined ? (
-                      <div className="min-w-full flex items-center">
-                        <Button
-                          type={ButtonType.LINK}
-                          onClick={() =>
-                            handleChangeStatement(i, {
-                              ...statement,
-                              time: {
-                                comparisonType: ComparisonType.BEFORE,
-                                timeBefore: new Date().toISOString(),
-                              },
-                            })
-                          }
-                        >
-                          Set time
-                        </Button>
-                      </div>
-                    ) : (
+
+                    {statement.time !== undefined && (
                       <div className="min-w-full flex items-center px-[20px] py-[14px] border border-[#E5E7EB] bg-white gap-[10px]">
-                        <select
+                        <Select
                           value={statement.time.comparisonType}
+                          options={[
+                            ComparisonType.BEFORE,
+                            ComparisonType.AFTER,
+                            ComparisonType.DURING,
+                          ].map((comparisonType, j) => ({
+                            key: comparisonType,
+                            title: comparisonType,
+                          }))}
                           onChange={(e) =>
                             handleChangeStatement(i, {
                               ...statement,
                               time: {
-                                comparisonType: e.target.value as any,
+                                comparisonType: e as any,
                               },
                             })
                           }
-                          className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
-                        >
-                          {[
-                            ComparisonType.BEFORE,
-                            ComparisonType.AFTER,
-                            ComparisonType.BETWEEN,
-                          ].map((comparisonType, j) => (
-                            <option key={j} value={comparisonType}>
-                              {comparisonType}
-                            </option>
-                          ))}
-                        </select>
+                          className="max-w-[145px]"
+                        />
+
                         <FilterBuilderDynamicInput
                           type={StatementValueType.DATE}
                           value={
@@ -734,7 +964,7 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                           }}
                         />
                         {statement.time?.comparisonType ===
-                          ComparisonType.BETWEEN && (
+                          ComparisonType.DURING && (
                           <>
                             -
                             <FilterBuilderDynamicInput
@@ -776,90 +1006,628 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                         </div>
                       </div>
                     )}
+                    {!!statement.additionalProperties.properties.length && (
+                      <>
+                        <div className="min-w-full">
+                          <div className="flex relative w-full gap-[10px] items-center">
+                            <div>
+                              <select
+                                value={
+                                  statement.additionalProperties.comparison
+                                }
+                                onChange={(e) =>
+                                  handleChangeStatement(i, {
+                                    ...statement,
+                                    additionalProperties: {
+                                      ...statement.additionalProperties,
+                                      comparison: e.target.value as QueryType,
+                                    },
+                                  })
+                                }
+                                className="w-[100px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] placeholder:font-inter placeholder:font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:text-[#9CA3AF] rounded-[2px]"
+                              >
+                                {Object.values(QueryType).map(
+                                  (comparisonType, j) => (
+                                    <option key={j} value={comparisonType}>
+                                      {capitalize(comparisonType)}
+                                    </option>
+                                  )
+                                )}
+                              </select>
+                            </div>
+                            <div className="font-normal text-[14px] leading-[22px]">
+                              of the following conditions match
+                            </div>
+                          </div>
+                          <div className="w-full flex flex-col gap-[10px] mt-[10px]">
+                            {statement.additionalProperties.properties.map(
+                              (property, propertyI) => (
+                                <>
+                                  <div className="flex items-center w-full">
+                                    <div
+                                      className={`${
+                                        statement.additionalProperties
+                                          .comparison === QueryType.ALL
+                                          ? "text-[#0C4A6E] bg-[#E0F2FE]"
+                                          : "text-[#713F12] bg-[#FEF9C3]"
+                                      } min-w-[50px] z-[1] text-center mr-[10px] py-[2px] px-[11.5px] rounded-[14px] font-roboto font-normal text-[14px] leading-[22px]`}
+                                    >
+                                      {statement.additionalProperties
+                                        .comparison === QueryType.ALL
+                                        ? "AND"
+                                        : "OR"}
+                                    </div>
+                                    <div className="flex gap-[10px] items-center bg-white p-[10px] w-full">
+                                      <>
+                                        <div>
+                                          <FlowBuilderAutoComplete
+                                            initialValue={property.key}
+                                            value={property.key}
+                                            includedItems={{
+                                              type: "getter",
+                                              items: possibleKeys.map(
+                                                (item) => item.key
+                                              ),
+                                            }}
+                                            retrieveLabel={(item) => item}
+                                            onQueryChange={(q) => {
+                                              handleChangeEventProperty(
+                                                i,
+                                                propertyI,
+                                                {
+                                                  ...property,
+                                                  key: q,
+                                                }
+                                              );
+                                              setKeysQuery(q);
+                                            }}
+                                            onSelect={(value) => {
+                                              handleChangeEventProperty(
+                                                i,
+                                                propertyI,
+                                                {
+                                                  ...property,
+                                                  key: value,
+                                                }
+                                              );
+                                              setKeysQuery(value);
+                                            }}
+                                            getKey={(value) => value}
+                                            placeholder="Property name"
+                                          />
+                                        </div>
+                                        <div>
+                                          <select
+                                            value={`${property.valueType};;${property.comparisonType}`}
+                                            className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
+                                            onChange={(ev) => {
+                                              if (!ev.target.value) return;
+
+                                              const [
+                                                valueType,
+                                                comparisonValueType,
+                                              ] = ev.target.value.split(";;");
+
+                                              handleChangeEventProperty(
+                                                i,
+                                                propertyI,
+                                                {
+                                                  ...property,
+                                                  valueType:
+                                                    valueType as StatementValueType,
+                                                  comparisonType:
+                                                    comparisonValueType as ComparisonType,
+                                                }
+                                              );
+                                            }}
+                                          >
+                                            {Object.values(
+                                              StatementValueType
+                                            ).map((comparisonType, j) => (
+                                              <optgroup
+                                                key={j}
+                                                label={comparisonType}
+                                              >
+                                                {valueTypeToComparisonTypesMap[
+                                                  comparisonType
+                                                ].map(
+                                                  (comparisonValueType, k) => (
+                                                    <option
+                                                      key={k}
+                                                      value={`${comparisonType};;${comparisonValueType}`}
+                                                    >
+                                                      {comparisonValueType}
+                                                    </option>
+                                                  )
+                                                )}
+                                              </optgroup>
+                                            ))}
+                                          </select>
+                                        </div>
+                                        <div>
+                                          {property.valueType ===
+                                            StatementValueType.ARRAY &&
+                                          [
+                                            ComparisonType.ARRAY_LENGTH_EQUAL,
+                                            ComparisonType.ARRAY_LENGTH_GREATER,
+                                            ComparisonType.ARRAY_LENGTH_LESS,
+                                          ].includes(
+                                            property.comparisonType
+                                          ) ? (
+                                            <FilterBuilderDynamicInput
+                                              type={StatementValueType.NUMBER}
+                                              value={property.value}
+                                              onChange={(value) =>
+                                                +value >= 0 &&
+                                                handleChangeEventProperty(
+                                                  i,
+                                                  propertyI,
+                                                  {
+                                                    ...property,
+                                                    value: +value ? value : "0",
+                                                  }
+                                                )
+                                              }
+                                            />
+                                          ) : (
+                                            property.comparisonType !==
+                                              ComparisonType.EXIST &&
+                                            property.comparisonType !==
+                                              ComparisonType.NOT_EXIST && (
+                                              <FilterBuilderDynamicInput
+                                                type={property.valueType}
+                                                value={property.value}
+                                                onChange={(value) =>
+                                                  handleChangeEventProperty(
+                                                    i,
+                                                    propertyI,
+                                                    {
+                                                      ...property,
+                                                      value,
+                                                    }
+                                                  )
+                                                }
+                                              />
+                                            )
+                                          )}
+                                        </div>
+                                        {property.valueType ===
+                                          StatementValueType.DATE &&
+                                          property.comparisonType ===
+                                            ComparisonType.DURING && (
+                                            <>
+                                              -
+                                              <div>
+                                                <FilterBuilderDynamicInput
+                                                  type={StatementValueType.DATE}
+                                                  value={
+                                                    property.subComparisonValue ||
+                                                    ""
+                                                  }
+                                                  onChange={(value) => {
+                                                    handleChangeEventProperty(
+                                                      i,
+                                                      propertyI,
+                                                      {
+                                                        ...property,
+                                                        subComparisonValue:
+                                                          value,
+                                                      }
+                                                    );
+                                                  }}
+                                                />
+                                              </div>
+                                            </>
+                                          )}
+                                        {property.comparisonType ===
+                                          ComparisonType.OBJECT_KEY && (
+                                          <div>
+                                            <select
+                                              value={property.subComparisonType}
+                                              onChange={(e) =>
+                                                handleChangeEventProperty(
+                                                  i,
+                                                  propertyI,
+                                                  {
+                                                    ...property,
+                                                    subComparisonType: e.target
+                                                      .value as ObjectKeyComparisonType,
+                                                  }
+                                                )
+                                              }
+                                              className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
+                                            >
+                                              {Object.values(
+                                                ObjectKeyComparisonType
+                                              ).map((comparisonType, j) => (
+                                                <option
+                                                  key={j}
+                                                  value={comparisonType}
+                                                >
+                                                  {comparisonType}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        )}
+                                        {property.comparisonType ===
+                                          ComparisonType.OBJECT_KEY &&
+                                          [
+                                            ObjectKeyComparisonType.KEY_VALUE_EQUAL_TO,
+                                            ObjectKeyComparisonType.KEY_VALUE_NOT_EQUAL_TO,
+                                          ].includes(
+                                            property.subComparisonType
+                                          ) && (
+                                            <div>
+                                              <FilterBuilderDynamicInput
+                                                type={StatementValueType.STRING}
+                                                value={
+                                                  property.subComparisonValue
+                                                }
+                                                onChange={(value) =>
+                                                  handleChangeEventProperty(
+                                                    i,
+                                                    propertyI,
+                                                    {
+                                                      ...property,
+                                                      subComparisonValue: value,
+                                                    }
+                                                  )
+                                                }
+                                              />
+                                            </div>
+                                          )}
+                                      </>
+                                      <div
+                                        className="cursor-pointer ml-auto"
+                                        onClick={() =>
+                                          handleDeleteEventProperty(
+                                            i,
+                                            propertyI
+                                          )
+                                        }
+                                      >
+                                        <svg
+                                          width="16"
+                                          height="16"
+                                          viewBox="0 0 16 16"
+                                          fill="none"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                          <path
+                                            d="M5.28739 2.14118H5.14453C5.2231 2.14118 5.28739 2.0769 5.28739 1.99833V2.14118H10.716V1.99833C10.716 2.0769 10.7802 2.14118 10.8588 2.14118H10.716V3.4269H12.0017V1.99833C12.0017 1.36797 11.4892 0.855469 10.8588 0.855469H5.14453C4.51417 0.855469 4.00167 1.36797 4.00167 1.99833V3.4269H5.28739V2.14118ZM14.2874 3.4269H1.71596C1.39989 3.4269 1.14453 3.68225 1.14453 3.99833V4.56975C1.14453 4.64833 1.20882 4.71261 1.28739 4.71261H2.36596L2.80703 14.0519C2.8356 14.6608 3.33917 15.1412 3.9481 15.1412H12.0552C12.666 15.1412 13.1677 14.6626 13.1963 14.0519L13.6374 4.71261H14.716C14.7945 4.71261 14.8588 4.64833 14.8588 4.56975V3.99833C14.8588 3.68225 14.6035 3.4269 14.2874 3.4269ZM11.9177 13.8555H4.0856L3.65346 4.71261H12.3499L11.9177 13.8555Z"
+                                            fill="#4B5563"
+                                          />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {(isSegmentSettings
+                                    ? showSegmentsSettingsErrors
+                                    : showSegmentsErrors) &&
+                                    statementsErrors[i].map((error, errorI) => (
+                                      <React.Fragment key={errorI}>
+                                        {error?.eventPropertyErrors[
+                                          propertyI
+                                        ]?.map((propError, propErrorI) => (
+                                          <div
+                                            key={propErrorI}
+                                            className="ml-[60px] w-full font-inter font-normal text-[12px] leading-[20px] text-[#E11D48]"
+                                          >
+                                            {
+                                              queryStatementErrorToMessageMap[
+                                                propError
+                                              ]
+                                            }
+                                          </div>
+                                        ))}
+                                      </React.Fragment>
+                                    ))}
+                                </>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="min-w-full flex flex-nowrap items-center gap-[10px]">
+                      <Button
+                        type={ButtonType.LINK}
+                        className="text-[#6366F1] whitespace-nowrap"
+                        onClick={() =>
+                          handleChangeStatement(i, {
+                            ...statement,
+                            additionalProperties: {
+                              ...statement.additionalProperties,
+                              properties: [
+                                ...statement.additionalProperties.properties,
+                                {
+                                  key: "",
+                                  comparisonType: ComparisonType.EQUALS,
+                                  subComparisonType:
+                                    ObjectKeyComparisonType.KEY_EXIST,
+                                  subComparisonValue: "",
+                                  valueType: StatementValueType.STRING,
+                                  value: "",
+                                },
+                              ],
+                            },
+                          })
+                        }
+                      >
+                        Add property
+                      </Button>
+                      {statement.time === undefined && (
+                        <Button
+                          type={ButtonType.LINK}
+                          className="text-[#6366F1]"
+                          onClick={() =>
+                            handleChangeStatement(i, {
+                              ...statement,
+                              time: {
+                                comparisonType: ComparisonType.BEFORE,
+                                timeBefore: new Date().toISOString(),
+                              },
+                            })
+                          }
+                        >
+                          Set time
+                        </Button>
+                      )}
+                    </div>
                   </>
-                ) : statement.type === QueryStatementType.MessageEvent ? (
+                ) : [
+                    QueryStatementType.EMAIL,
+                    QueryStatementType.SMS,
+                    QueryStatementType.PUSH,
+                    QueryStatementType.InAPP,
+                  ].includes(statement.type as QueryStatementType) ? (
                   <>
-                    <div>
-                      <select
-                        value={statement.messageId}
-                        onChange={(e) =>
+                    <span className="font-inter text-[14px] leading-[22px] text-[#111827]">
+                      from
+                    </span>
+                    <Select
+                      value={(statement as MessageEventQuery).from}
+                      searchPlaceholder="search journey"
+                      searchValue={journeySearchQuery}
+                      onSearchValueChange={setJourneySearchQuery}
+                      onChange={(el) => {
+                        handleChangeStatement(i, {
+                          ...statement,
+                          from: el as MessageFromJourney,
+                        } as MessageEventQuery);
+                      }}
+                      noDataPlaceholder={"No results"}
+                      className="min-w-[200px] max-w-[200px]"
+                      options={[
+                        {
+                          key: MessageFromJourney.ANY,
+                          title: "Any journeys",
+                        },
+                        {
+                          key: MessageFromJourney.WITH_TAG,
+                          title: "Journeys with a tag",
+                        },
+                        {
+                          key: "JourneysLabel",
+                          title: "Journeys",
+                          groupLabel: true,
+                        },
+                        {
+                          key: "UNIQE_ID",
+                          title: "JOURNEY",
+                        },
+                      ]}
+                    />
+                    {(statement as MessageEventQuery).from ===
+                      MessageFromJourney.WITH_TAG && (
+                      <Select
+                        value={(statement as MessageEventQuery).tag}
+                        placeholder={"select a tag"}
+                        searchPlaceholder="search journey"
+                        searchValue={journeySearchQuery}
+                        onSearchValueChange={setJourneySearchQuery}
+                        onChange={(el) => {
                           handleChangeStatement(i, {
                             ...statement,
-                            messageId: e.target.value,
-                          })
-                        }
-                        className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
-                      >
-                        <option value="" disabled>
-                          message name
-                        </option>
-                        <option value="text">test message</option>
-                      </select>
-                    </div>
-                    <div>
-                      <select
-                        value={statement.eventId}
-                        onChange={(e) =>
-                          handleChangeStatement(i, {
-                            ...statement,
-                            eventId: e.target.value,
-                          })
-                        }
-                        className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
-                      >
-                        <option value="" disabled>
-                          event name
-                        </option>
-                        <option value="text">test</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center">
-                      <select
-                        value={statement.performedType}
-                        onChange={(e) =>
-                          handleChangeStatement(i, {
-                            ...statement,
-                            performedType: e.target.value as PerformedType,
-                          })
-                        }
-                        className="w-[166px] px-[12px] py-[5px] mr-[10px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] rounded-[2px]"
-                      >
-                        {Object.values(PerformedType).map(
-                          (performedType, j) => (
-                            <option key={j} value={performedType}>
-                              {performedType}
-                            </option>
-                          )
-                        )}
-                      </select>
-                      <span className="font-inter text-[14px] leading-[22px] text-[#18181B]">
-                        at least
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="number"
-                        value={statement.value}
-                        onChange={(e) =>
-                          +e.target.value >= 0 &&
-                          handleChangeStatement(i, {
-                            ...statement,
-                            value: +e.target.value || 0,
-                          })
-                        }
-                        min="0"
-                        placeholder="Mins"
-                        className="w-full max-w-[80px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB] placeholder:font-inter placeholder:font-normal placeholder:text-[14px] mr-[6px] placeholder:leading-[22px] placeholder:text-[#9CA3AF] rounded-[2px]"
+                            from: el as MessageFromJourney,
+                          } as MessageEventQuery);
+                        }}
+                        noDataPlaceholder={"No results"}
+                        className="min-w-[200px] max-w-[200px]"
+                        options={[]}
                       />
-                      <span className="font-inter text-[14px] leading-[22px] text-[#18181B]">
-                        time
-                      </span>
-                    </div>
+                    )}
+                    {(statement as MessageEventQuery).from !==
+                      MessageFromJourney.WITH_TAG &&
+                      (statement as MessageEventQuery).from !==
+                        MessageFromJourney.ANY && (
+                        <Select
+                          value={
+                            (statement as MessageEventQuery).fromSpecificJourney
+                          }
+                          searchValue={journeySearchQuery}
+                          onSearchValueChange={setJourneySearchQuery}
+                          onChange={(el) => {
+                            handleChangeStatement(i, {
+                              ...statement,
+                              fromSpecificJourney: el,
+                            } as MessageEventQuery);
+                          }}
+                          noDataPlaceholder={"No results"}
+                          className="min-w-[140px] max-w-[140px]"
+                          options={[
+                            {
+                              key: "ANY",
+                              title: `Any ${statement.type.toLocaleLowerCase()} in this journey`,
+                            },
+                            {
+                              key: "Onboarding email",
+                              title: "Onboarding email",
+                            },
+                          ]}
+                        />
+                      )}
+                    <Select
+                      value={(statement as MessageEventQuery).happenCondition}
+                      onChange={(el) => {
+                        handleChangeStatement(i, {
+                          ...statement,
+                          happenCondition: el as MessageGeneralComparison,
+                        } as MessageEventQuery);
+                      }}
+                      noDataPlaceholder={"No results"}
+                      className="min-w-[80px] max-w-[110px]"
+                      options={[
+                        {
+                          key: MessageGeneralComparison.HAS,
+                          title: MessageGeneralComparison.HAS,
+                        },
+                        {
+                          key: MessageGeneralComparison.HAS_NOT,
+                          title: MessageGeneralComparison.HAS_NOT,
+                        },
+                      ]}
+                    />
+                    <Select
+                      value={(statement as MessageEventQuery).eventCondition}
+                      onChange={(el) => {
+                        handleChangeStatement(i, {
+                          ...statement,
+                          eventCondition: el,
+                        } as MessageEventQuery);
+                      }}
+                      noDataPlaceholder={"No results"}
+                      className="max-w-[160px]"
+                      options={
+                        messageEventsCorelation[
+                          (statement as MessageEventQuery).type
+                        ]
+                      }
+                    />
+                    {(statement as MessageEventQuery).time === undefined && (
+                      <div className="min-w-full">
+                        <Button
+                          type={ButtonType.LINK}
+                          className="text-[#6366F1]"
+                          onClick={() =>
+                            handleChangeStatement(i, {
+                              ...statement,
+                              time: {
+                                comparisonType: ComparisonType.BEFORE,
+                                timeBefore: new Date().toISOString(),
+                              },
+                            } as MessageEventQuery)
+                          }
+                        >
+                          Set time
+                        </Button>
+                      </div>
+                    )}
+                    {(statement as MessageEventQuery).time !== undefined && (
+                      <div className="min-w-full flex items-center px-[20px] py-[14px] border border-[#E5E7EB] bg-white gap-[10px]">
+                        <Select
+                          value={
+                            (statement as MessageEventQuery).time!
+                              .comparisonType
+                          }
+                          options={[
+                            ComparisonType.BEFORE,
+                            ComparisonType.AFTER,
+                            ComparisonType.DURING,
+                          ].map((comparisonType, j) => ({
+                            key: comparisonType,
+                            title: comparisonType,
+                          }))}
+                          onChange={(e) =>
+                            handleChangeStatement(i, {
+                              ...statement,
+                              time: {
+                                comparisonType: e as any,
+                              },
+                            } as MessageEventQuery)
+                          }
+                          className="max-w-[145px]"
+                        />
+
+                        <FilterBuilderDynamicInput
+                          type={StatementValueType.DATE}
+                          value={
+                            ((statement as MessageEventQuery).time
+                              ?.comparisonType === ComparisonType.BEFORE
+                              ? (statement as MessageEventQuery).time
+                                  ?.timeBefore
+                              : (statement as MessageEventQuery).time
+                                  ?.timeAfter) || ""
+                          }
+                          onChange={(value) => {
+                            handleChangeStatement(i, {
+                              ...statement,
+                              time: {
+                                ...(statement as MessageEventQuery).time!,
+                                ...((statement as MessageEventQuery).time
+                                  ?.comparisonType === ComparisonType.BEFORE
+                                  ? {
+                                      timeBefore: new Date(value).toISOString(),
+                                    }
+                                  : {
+                                      timeAfter: new Date(value).toISOString(),
+                                    }),
+                              },
+                            } as MessageEventQuery);
+                          }}
+                        />
+                        {(statement as MessageEventQuery).time
+                          ?.comparisonType === ComparisonType.DURING && (
+                          <>
+                            -
+                            <FilterBuilderDynamicInput
+                              type={StatementValueType.DATE}
+                              value={
+                                (statement as MessageEventQuery).time
+                                  ?.timeBefore || ""
+                              }
+                              onChange={(value) => {
+                                handleChangeStatement(i, {
+                                  ...statement,
+                                  time: {
+                                    ...(statement as MessageEventQuery).time!,
+                                    timeBefore: new Date(value).toISOString(),
+                                  },
+                                } as MessageEventQuery);
+                              }}
+                            />
+                          </>
+                        )}
+                        <div
+                          className="cursor-pointer ml-auto"
+                          onClick={() =>
+                            handleChangeStatement(i, {
+                              ...statement,
+                              time: undefined,
+                            } as MessageEventQuery)
+                          }
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M5.28739 2.14118H5.14453C5.2231 2.14118 5.28739 2.0769 5.28739 1.99833V2.14118H10.716V1.99833C10.716 2.0769 10.7802 2.14118 10.8588 2.14118H10.716V3.4269H12.0017V1.99833C12.0017 1.36797 11.4892 0.855469 10.8588 0.855469H5.14453C4.51417 0.855469 4.00167 1.36797 4.00167 1.99833V3.4269H5.28739V2.14118ZM14.2874 3.4269H1.71596C1.39989 3.4269 1.14453 3.68225 1.14453 3.99833V4.56975C1.14453 4.64833 1.20882 4.71261 1.28739 4.71261H2.36596L2.80703 14.0519C2.8356 14.6608 3.33917 15.1412 3.9481 15.1412H12.0552C12.666 15.1412 13.1677 14.6626 13.1963 14.0519L13.6374 4.71261H14.716C14.7945 4.71261 14.8588 4.64833 14.8588 4.56975V3.99833C14.8588 3.68225 14.6035 3.4269 14.2874 3.4269ZM11.9177 13.8555H4.0856L3.65346 4.71261H12.3499L11.9177 13.8555Z"
+                              fill="#4B5563"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
                   </>
-                ) : statement.isSubBuilderChild ? (
+                ) : (statement as Query)?.isSubBuilderChild ? (
                   <FilterBuilder
                     settings={{
-                      query: statement,
+                      query: statement as Query,
                     }}
                     isSubBuilderChild
                     onSettingsChange={(filter) => {
@@ -869,7 +1637,6 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                     isSegmentSettings={isSegmentSettings}
                   />
                 ) : (
-                  // TODO: add  QueryStatementType.JourneyAttributes after clarification
                   <></>
                 )}
                 {(showSegmentsErrors || showSegmentsSettingsErrors) &&
@@ -878,7 +1645,7 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
                       key={k}
                       className="w-full font-inter font-normal text-[12px] leading-[20px] text-[#E11D48]"
                     >
-                      {queryStatementErrorToMessageMap[error]}
+                      {queryStatementErrorToMessageMap[error.type]}
                     </div>
                   ))}
               </div>
@@ -936,18 +1703,18 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
             )}
         </React.Fragment>
       ))}
-      <div className="flex gap-[10px]">
+      <div className="flex flex-nowrap gap-[10px]">
         <Button
           type={ButtonType.SECONDARY}
           onClick={handleAddStatement}
-          className="max-w-[120px]"
+          className="max-w-[120px] whitespace-nowrap"
         >
           Add condition
         </Button>
         <Button
           type={ButtonType.LINK}
           onClick={handleAddGroup}
-          className="max-w-[130px] text-[#6366F1]"
+          className="max-w-[130px] text-[#6366F1] whitespace-nowrap"
         >
           Add logic group
         </Button>
@@ -957,7 +1724,7 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
             onClick={() => {
               onSubBuilderUngroup(settings.query.statements);
             }}
-            className="max-w-[130px] text-[#6366F1]"
+            className="max-w-[130px] text-[#6366F1] whitespace-nowrap"
           >
             Ungroup
           </Button>

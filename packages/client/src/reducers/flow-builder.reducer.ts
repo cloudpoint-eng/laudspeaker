@@ -42,19 +42,78 @@ export enum QueryType {
   ANY = "any",
 }
 
+export enum MessageFromJourney {
+  ANY = "ANY",
+  WITH_TAG = "WITH_TAG",
+}
+
+export enum MessageGeneralComparison {
+  HAS = "has",
+  HAS_NOT = "has not",
+}
+
+export enum MessageEmailEventCondition {
+  RECEIVED = "received",
+  OPENED = "opened",
+}
+
+export enum MessagePushEventCondition {
+  RECEIVED = "received",
+  OPENED = "opened",
+}
+
+export enum MessageSMSEventCondition {
+  RECEIVED = "received",
+  CLICK_LINK = "click_link",
+}
+
+export enum MessageInAPPEventCondition {
+  RECEIVED = "received",
+  OPENED = "opened",
+}
+
 export enum QueryStatementType {
   ATTRIBUTE = "Attribute",
   SEGMENT = "Segment",
   EVENT = "Event",
-  MessageEvent = "Message Event",
-  JourneyAttributes = "Journey Attributes",
+  EMAIL = "Email",
+  PUSH = "Push",
+  SMS = "SMS",
+  InAPP = "In-app message",
+}
+
+export type MessageEventTypes =
+  | QueryStatementType.EMAIL
+  | QueryStatementType.PUSH
+  | QueryStatementType.SMS
+  | QueryStatementType.InAPP;
+
+export interface MessageEventQuery {
+  type: MessageEventTypes;
+  from: MessageFromJourney | string;
+  happenCondition: MessageGeneralComparison;
+  eventCondition:
+    | MessageEmailEventCondition
+    | MessagePushEventCondition
+    | MessageSMSEventCondition
+    | MessageInAPPEventCondition;
+  fromSpecificJourney: "ANY" | string;
+  tag?: string;
+  time?: {
+    comparisonType:
+      | ComparisonType.BEFORE
+      | ComparisonType.AFTER
+      | ComparisonType.DURING;
+    timeAfter?: string;
+    timeBefore?: string;
+  };
 }
 
 export enum ComparisonType {
   EQUALS = "is equal to",
   NOT_EQUALS = "is not equal to",
   OBJECT_KEY = "key",
-  BETWEEN = "between",
+  DURING = "during",
   ARRAY_LENGTH_GREATER = "length is greater than",
   ARRAY_LENGTH_LESS = "length is less than",
   ARRAY_LENGTH_EQUAL = "length is equal to",
@@ -124,7 +183,7 @@ export const valueTypeToComparisonTypesMap: Record<
   [StatementValueType.DATE]: [
     ComparisonType.BEFORE,
     ComparisonType.AFTER,
-    ComparisonType.BETWEEN,
+    ComparisonType.DURING,
     ComparisonType.EXIST,
     ComparisonType.NOT_EXIST,
   ],
@@ -159,27 +218,34 @@ export enum PerformedType {
   HasNotPerformed = "has not performed",
 }
 
+export interface EventQueryAdditionalProperty {
+  key: string;
+  valueType: StatementValueType;
+  comparisonType: ComparisonType;
+  subComparisonType: ObjectKeyComparisonType;
+  subComparisonValue: string;
+  value: string;
+}
+
+export interface EventQueryAdditionalProperties {
+  comparison: QueryType;
+  properties: EventQueryAdditionalProperty[];
+}
+
 export interface EventQueryStatement {
   type: QueryStatementType.EVENT;
   eventName: string;
   comparisonType: PerformedType;
+  additionalProperties: EventQueryAdditionalProperties;
   value: number;
   time?: {
     comparisonType:
       | ComparisonType.BEFORE
       | ComparisonType.AFTER
-      | ComparisonType.BETWEEN;
+      | ComparisonType.DURING;
     timeAfter?: string;
     timeBefore?: string;
   };
-}
-
-export interface MessageEventQueryStatement {
-  type: QueryStatementType.MessageEvent;
-  messageId: string;
-  eventId: string;
-  performedType: PerformedType;
-  value: number;
 }
 
 export interface SegmentQueryStatement {
@@ -191,7 +257,7 @@ export type QueryStatement =
   | AttributeQueryStatement
   | SegmentQueryStatement
   | EventQueryStatement
-  | MessageEventQueryStatement
+  | MessageEventQuery
   | Query;
 
 export interface Query {
@@ -1059,7 +1125,9 @@ const flowBuilderSlice = createSlice({
       state.flowStatus = action.payload;
     },
     setShowSegmentsErrors(state, action: PayloadAction<boolean>) {
-      state.showSegmentsErrors = action.payload;
+      if (!Object.keys(state.segmentQueryErrors).length)
+        state.showSegmentsErrors = false;
+      else state.showSegmentsErrors = action.payload;
     },
     setIsOnboarding(state, action: PayloadAction<boolean>) {
       state.isOnboarding = action.payload;
