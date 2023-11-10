@@ -182,6 +182,12 @@ export class WebhooksService {
     session: string,
     data?: any[]
   ) {
+    this.debug(
+      `${JSON.stringify({ signature, timestamp, data })}`,
+      this.processSendgridData.name,
+      session
+    );
+
     let step: Step = null;
 
     for (const item of data) {
