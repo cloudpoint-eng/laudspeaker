@@ -163,6 +163,13 @@ export class StepsService {
         lock: { mode: 'pessimistic_write' },
       });
 
+      this.debug(
+        `${JSON.stringify({ startStep: startStep })}`,
+        this.addToStart.name,
+        session,
+        account.email
+      );
+
       if (startStep.length != 1)
         throw new Error('Can only have one start step per journey.');
 
