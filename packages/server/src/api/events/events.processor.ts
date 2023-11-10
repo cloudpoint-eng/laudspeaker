@@ -284,7 +284,7 @@ export class EventsProcessor extends WorkerHost {
                   analyticsEvent.provider === AnalyticsProviderTypes.POSTHOG &&
                   analyticsEvent.event === PosthogTriggerParams.Pageview
                 ) {
-                  const matches: boolean = ['exists', 'doesNotExist'].includes(
+                  const matches: boolean = ['exist', 'not exist'].includes(
                     comparisonType
                   )
                     ? this.audiencesHelper.operableCompare(
@@ -298,7 +298,7 @@ export class EventsProcessor extends WorkerHost {
                       );
                   conditionEvalutation.push(matches);
                 } else {
-                  const matches = ['exists', 'doesNotExist'].includes(
+                  const matches = ['exist', 'not exist'].includes(
                     comparisonType
                   )
                     ? this.audiencesHelper.operableCompare(

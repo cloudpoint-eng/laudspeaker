@@ -1056,7 +1056,7 @@ export class WorkflowsService {
                               condition.value || ''
                             }`
                           );
-                          return ['exists', 'doesNotExist'].includes(
+                          return ['exist', 'not exist'].includes(
                             condition.comparisonType
                           )
                             ? this.audiencesHelper.operableCompare(

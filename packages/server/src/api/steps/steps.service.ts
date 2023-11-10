@@ -348,7 +348,7 @@ export class StepsService {
           journey: { id: journeyID },
           type: type,
         },
-        relations: ['journey'],
+        relations: ['journey', 'owner'],
       });
     } catch (e) {
       this.error(e, this.findAllByType.name, session);

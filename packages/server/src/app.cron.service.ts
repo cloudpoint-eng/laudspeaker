@@ -331,7 +331,7 @@ export class CronService {
     }
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_MINUTE)
   async handleIntegrations() {
     const integrationsNumber = await this.integrationsRepository.countBy({
       status: IntegrationStatus.ACTIVE,
@@ -355,7 +355,7 @@ export class CronService {
     }
   }
 
-  @Cron(CronExpression.EVERY_2_HOURS)
+  @Cron(CronExpression.EVERY_MINUTE)
   async handleTimeBasedSteps() {
     let err: any, lock: Lock;
     const session = randomUUID();
@@ -380,14 +380,6 @@ export class CronService {
           customersIndex++
         ) {
           try {
-            lock = await this.redlockService.acquire(
-              `${customers[customersIndex].id}${journeys[journeyIndex].id}`
-            );
-            this.warn(
-              `${JSON.stringify({ warning: 'Acquiring lock' })}`,
-              this.handleTimeBasedSteps.name,
-              session
-            );
             const steps =
               await this.stepsService.transactionalFindAllActiveByTypeAndJourney(
                 StepType.TIME_DELAY,
@@ -412,12 +404,20 @@ export class CronService {
               ))
             );
             for (let i = 0; i < steps.length; i++) {
+              lock = await this.redlockService.acquire(
+                `${customers[customersIndex].id}${journeys[journeyIndex].id}${steps[i].id}`
+              );
+              this.warn(
+                `${JSON.stringify({ warning: 'Acquiring lock' })}`,
+                this.handleTimeBasedSteps.name,
+                session
+              );
               let branch;
               if (steps[i].type === StepType.WAIT_UNTIL_BRANCH) {
                 if (!steps[i].metadata.timeBranch) {
                   await lock.release();
                   this.warn(
-                    `${JSON.stringify({ warning: 'Releasing lock' })}`,
+                    `${JSON.stringify({ warning: 'Releasing lock'})}`,
                     this.handleTimeBasedSteps.name,
                     session
                   );
@@ -432,7 +432,7 @@ export class CronService {
                     customers[customersIndex].id
                   );
                 })
-              )
+              ) {
                 this.transitionQueue.add(steps[i].type, {
                   step: steps[i],
                   ownerID: steps[i].owner.id,
@@ -441,13 +441,13 @@ export class CronService {
                   lock,
                   branch,
                 });
-              else {
-                await lock.release();
+              } else {
                 this.warn(
                   `${JSON.stringify({ warning: 'Releasing lock' })}`,
                   this.handleTimeBasedSteps.name,
                   session
                 );
+                await lock.release();
               }
             }
           } catch (e) {
@@ -563,7 +563,7 @@ export class CronService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_NOON)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   async handleMissedSendgridEvents() {
     const session = randomUUID();
     try {

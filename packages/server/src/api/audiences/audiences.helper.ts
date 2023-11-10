@@ -122,9 +122,9 @@ export class AudiencesHelper {
 
   public operableCompare(custAttr: any, operator: string) {
     switch (operator) {
-      case 'exists':
+      case 'exist':
         return custAttr != null && custAttr != undefined;
-      case 'doesNotExist':
+      case 'not exist':
         return custAttr == null || custAttr == undefined;
     }
   }

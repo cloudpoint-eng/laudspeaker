@@ -1493,7 +1493,15 @@ export class TransitionProcessor extends WorkerHost {
       return;
     }
 
-    let branch: number;
+    this.debug(
+      `${JSON.stringify({
+        currentStep,
+      })}`,
+      this.handleAttributeBranch.name,
+      session
+    );
+
+    let branch = -1;
     const conditionEvalutation: boolean[] = [];
     const customer = await this.customersService.findById(owner, customerID);
     for (
@@ -1501,43 +1509,58 @@ export class TransitionProcessor extends WorkerHost {
       conditionIndex < currentStep.metadata.branches.length ?? 0;
       conditionIndex++
     ) {
-      // {"branches": [{"index": 0, "groups": [{"relation": "and", "attributes": [{"key": "totalSpentAmount", "value": "5", "keyType": "Number", "comparisonType": "is less than"}, {"key": "name", "value": "11", "keyType": "String", "comparisonType": "is equal to"}]}], "relation": "or"}, {"index": 1, "groups": [{"relation": "and", "attributes": [{"key": "name", "value": "te", "keyType": "String", "comparisonType": "is equal to"}]}], "relation": "or"}]}
       const branch = currentStep.metadata.branches[conditionIndex];
       const groups = branch.groups;
       const groupEvaluation: boolean[] = [];
 
-      // Evaluate each group, if groups are joined by OR, then if any group is true, the condition is true
-      // If groups are joined by AND, then if any group is false, the condition is false
       for (let groupIndex = 0; groupIndex < groups.length ?? 0; groupIndex++) {
         const group = groups[groupIndex];
         const attributes = group.attributes;
         const attributeEvaluation: boolean[] = [];
 
-        // Evaluate each attribute, if attributes are joined by OR, then if any attribute is true, the group is true
-        // If attributes are joined by AND, then if any attribute is false, the group is false
         for (
           let attributeIndex = 0;
           attributeIndex < attributes.length ?? 0;
           attributeIndex++
         ) {
-          const attribute = attributes[attributeIndex];
           const attributeValue = attributes[attributeIndex].value;
           const attributeKey = attributes[attributeIndex].key;
-          const attributeKeyType = attributes[attributeIndex].keyType;
           const attributeComparisonType =
             attributes[attributeIndex].comparisonType;
-          const matches: boolean = ['exists', 'doesNotExist'].includes(
+          const customerAttribute = customer[attributeKey]
+            ? customer[attributeKey].trim()
+            : undefined;
+
+          this.debug(
+            `${JSON.stringify({
+              attributeValue,
+              attributeKey,
+              attributeComparisonType,
+              customerAttribute,
+            })}`,
+            this.handleAttributeBranch.name,
+            session
+          );
+          const matches: boolean = ['exist', 'not exist'].includes(
             attributeComparisonType
           )
             ? this.audiencesHelper.operableCompare(
-                customer[attributeKey],
+                customerAttribute,
                 attributeComparisonType
               )
             : await this.audiencesHelper.conditionalCompare(
-                customer[attributeKey],
+                customerAttribute,
                 attributeValue,
                 attributeComparisonType
               );
+          this.warn(
+            `${JSON.stringify({
+              checkMatchResult: matches,
+            })}`,
+            this.process.name,
+            session
+          );
+          attributeEvaluation.push(matches);
         }
         groupEvaluation.push(
           group.relation === 'or'
@@ -1549,21 +1572,26 @@ export class TransitionProcessor extends WorkerHost {
         branch.relation === 'or'
           ? groupEvaluation.includes(true)
           : !groupEvaluation.includes(false)
-      ); 
+      );
     }
 
     if (conditionEvalutation.includes(true)) {
       branch = conditionEvalutation.indexOf(true);
     }
 
-    const nextStep = await queryRunner.manager.findOne(Step, {
-      where: {
-        id: currentStep.metadata.branches.filter((branchItem) => {
-          return branchItem.index === branch;
-        })[0].destination,
-      },
-      lock: { mode: 'pessimistic_write' },
-    });
+    const destinationStepId =
+      currentStep.metadata.branches.filter((branchItem) => {
+        return branchItem.index === branch;
+      })[0]?.destination ?? null;
+
+    const nextStep = destinationStepId
+      ? await queryRunner.manager.findOne(Step, {
+          where: {
+            id: destinationStepId,
+          },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : null;
 
     if (nextStep) {
       // Destination exists, move customer into destination
