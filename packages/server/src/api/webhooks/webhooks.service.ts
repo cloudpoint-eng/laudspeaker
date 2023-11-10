@@ -230,7 +230,7 @@ export class WebhooksService {
       event: string;
       accountId: string;
       trackerId: string;
-      customerId: string;
+      email: string;
     }[] = [];
 
     for (const item of data) {
@@ -266,12 +266,16 @@ export class WebhooksService {
 
       messagesToInsert.push(clickHouseRecord);
 
-      if (item?.trackerId && SENDGRID_EVENTS.includes(clickHouseRecord.event)) {
+      if (
+        item?.trackerId &&
+        item?.email &&
+        SENDGRID_EVENTS.includes(clickHouseRecord.event)
+      ) {
         trackerEventPayloads.push({
           event: clickHouseRecord.event,
           accountId: clickHouseRecord.userId,
           trackerId: item.trackerId,
-          customerId: clickHouseRecord.customerId,
+          email: item.email,
         });
       }
     }
@@ -284,7 +288,7 @@ export class WebhooksService {
             payload.event,
             payload.accountId,
             payload.trackerId,
-            payload.customerId
+            payload.email
           )
         )
       );
@@ -473,7 +477,7 @@ export class WebhooksService {
     sendgridEvent: string,
     accountId: string,
     trackerId: string,
-    customerId: string
+    email: string
   ) {
     const session = randomUUID();
     const account = await this.accountRepository.findOneBy({ id: accountId });
@@ -482,8 +486,8 @@ export class WebhooksService {
     await this.eventsService.customPayload(
       account,
       {
-        correlationKey: '_id',
-        correlationValue: customerId,
+        correlationKey: 'email',
+        correlationValue: email,
         source: AnalyticsProviderTypes.TRACKER,
         event: sendgridEvent,
         payload: {

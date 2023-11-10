@@ -164,7 +164,11 @@ export class StepsService {
       });
 
       this.debug(
-        `${JSON.stringify({ startStep: startStep })}`,
+        `${JSON.stringify({
+          startStep: startStep,
+          journeyID: journeyID,
+          accountID: account.id,
+        })}`,
         this.addToStart.name,
         session,
         account.email
