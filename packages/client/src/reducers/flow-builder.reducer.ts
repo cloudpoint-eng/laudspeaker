@@ -127,6 +127,7 @@ export enum ComparisonType {
   BEFORE = "before",
   BOOL_EQUALS = "is equal to",
   BOOL_NOT_EQUALS = "is not equal to",
+  DATE_EQUALS = "is equal to",
 }
 
 export enum ObjectKeyComparisonType {
@@ -134,6 +135,11 @@ export enum ObjectKeyComparisonType {
   KEY_NOT_EXIST = "not exist",
   KEY_VALUE_EQUAL_TO = "equal to",
   KEY_VALUE_NOT_EQUAL_TO = "not equal to",
+}
+
+export enum ComparisonValueType {
+  SPECIFIC_VALUE = "specific value",
+  DATE_CURRENT_MONTH = "current month",
 }
 
 export enum StatementValueType {
@@ -186,6 +192,7 @@ export const valueTypeToComparisonTypesMap: Record<
     ComparisonType.DURING,
     ComparisonType.EXIST,
     ComparisonType.NOT_EXIST,
+    ComparisonType.DATE_EQUALS,
   ],
   [StatementValueType.ARRAY]: [
     ComparisonType.ARRAY_LENGTH_GREATER,

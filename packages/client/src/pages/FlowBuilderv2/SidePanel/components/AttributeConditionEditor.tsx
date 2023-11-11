@@ -10,6 +10,7 @@ import { useDebounce } from "react-use";
 import {
   addSidePanelError,
   ComparisonType,
+  ComparisonValueType,
   removeSidePanelError,
   StatementValueType,
   valueTypeToComparisonTypesMap,
@@ -169,8 +170,12 @@ const AttributeConditionEditor: FC<AttributeConditionEditorProps> = ({
             <select
               value={statement.comparisonType}
               onChange={(e) => {
-                condition.statements[i].comparisonType = e.target
-                  .value as ComparisonType;
+                const comparisonType = e.target.value as ComparisonType;
+                condition.statements[i].comparisonType = comparisonType;
+                if (comparisonType !== ComparisonType.DATE_EQUALS) {
+                  condition.statements[i].comparisonValueType = undefined;
+                  condition.statements[i].value = "";
+                }
                 setCondition({ ...condition });
               }}
               className="w-[145px] px-[12px] py-[5px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB]"
@@ -200,14 +205,46 @@ const AttributeConditionEditor: FC<AttributeConditionEditorProps> = ({
             </select>
           </div>
           <div>
-            <FlowBuilderDynamicInput
-              type={statement.valueType}
-              value={statement.value}
-              onChange={(value) => {
-                condition.statements[i].value = value;
-                setCondition({ ...condition });
-              }}
-            />
+            {StatementValueType.DATE === statement.valueType &&
+              statement.comparisonType === ComparisonType.DATE_EQUALS && (
+                <select
+                  value={statement.comparisonValueType}
+                  onChange={(e) => {
+                    const comparisonValueType = e.target
+                      .value as ComparisonValueType;
+                    condition.statements[i].comparisonValueType =
+                      comparisonValueType;
+                    if (
+                      comparisonValueType ===
+                      ComparisonValueType.DATE_CURRENT_MONTH
+                    ) {
+                      condition.statements[i].value = comparisonValueType;
+                    }
+                    setCondition({ ...condition });
+                  }}
+                  className="w-full px-[12px] py-[5px] mb-[10px] font-inter font-normal text-[14px] leading-[22px] border-[1px] border-[#E5E7EB]"
+                >
+                  <option value={ComparisonValueType.SPECIFIC_VALUE}>
+                    {ComparisonValueType.SPECIFIC_VALUE}
+                  </option>
+                  <option value={ComparisonValueType.DATE_CURRENT_MONTH}>
+                    {ComparisonValueType.DATE_CURRENT_MONTH}
+                  </option>
+                </select>
+              )}
+            {(!statement?.comparisonValueType ||
+              (statement?.comparisonValueType &&
+                statement?.comparisonValueType ===
+                  ComparisonValueType.SPECIFIC_VALUE)) && (
+              <FlowBuilderDynamicInput
+                type={statement.valueType}
+                value={statement.value}
+                onChange={(value) => {
+                  condition.statements[i].value = value;
+                  setCondition({ ...condition });
+                }}
+              />
+            )}
             {showErrors &&
               errors[i].some(
                 (statementError) =>

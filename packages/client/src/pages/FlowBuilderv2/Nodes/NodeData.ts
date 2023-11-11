@@ -1,5 +1,6 @@
 import {
   ComparisonType,
+  ComparisonValueType,
   StatementValueType,
 } from "reducers/flow-builder.reducer";
 import { MessageType, ProviderType } from "types/Workflow";
@@ -110,6 +111,7 @@ export interface AttributeStatement {
   valueType: StatementValueType;
   relationToNext: LogicRelation;
   value: string;
+  comparisonValueType?: ComparisonValueType | undefined;
 }
 
 export interface AttributeCondition {

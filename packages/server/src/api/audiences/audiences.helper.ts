@@ -4,9 +4,7 @@ import { forwardRef } from '@nestjs/common/utils';
 import { Account } from '../accounts/entities/accounts.entity';
 import { CustomerDocument } from '../customers/schemas/customer.schema';
 import { SegmentsService } from '../segments/segments.service';
-import { InclusionCriteria } from '../segments/types/segment.type';
 import {
-  AttributeBranch,
   AttributeGroup,
   CustomerAttribute,
 } from '../steps/types/step.interface';
@@ -88,6 +86,19 @@ export class AudiencesHelper {
   ) {
     switch (operator) {
       case 'is equal to':
+        if (checkVal === 'current month') {
+          if (!custAttr) return false;
+          if (typeof custAttr === 'string') {
+            const dateAttribute = custAttr.split('-')[1];
+            if (!dateAttribute) return false;
+
+            const now = new Date();
+            return Number(dateAttribute) === now.getMonth() + 1;
+          }
+
+          return false;
+        }
+
         return custAttr == checkVal;
       case 'is not equal to':
         return custAttr != checkVal;
