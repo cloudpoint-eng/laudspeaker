@@ -8,6 +8,7 @@ import mongoose, {
 } from 'mongoose';
 import {
   BadRequestException,
+  forwardRef,
   HttpException,
   HttpStatus,
   Inject,
@@ -41,10 +42,10 @@ import { SegmentsService } from '../segments/segments.service';
 import { AudiencesHelper } from '../audiences/audiences.helper';
 import { SegmentCustomers } from '../segments/entities/segment-customers.entity';
 import { AudiencesService } from '../audiences/audiences.service';
-import { WorkflowsService } from '../workflows/workflows.service';
 import * as _ from 'lodash';
 import { randomUUID } from 'crypto';
 import { StepsService } from '../steps/steps.service';
+import { JourneysService } from '../journeys/journeys.service';
 
 export type Correlation = {
   cust: CustomerDocument;
@@ -112,11 +113,11 @@ export class CustomersService {
     public accountsRepository: Repository<Account>,
     private readonly audiencesHelper: AudiencesHelper,
     private readonly audiencesService: AudiencesService,
-    @Inject(WorkflowsService)
-    private readonly workflowsService: WorkflowsService,
     @Inject(StepsService)
     private readonly stepsService: StepsService,
-    @InjectConnection() private readonly connection: mongoose.Connection
+    @InjectConnection() private readonly connection: mongoose.Connection,
+    @Inject(forwardRef(() => JourneysService))
+    private readonly journeysService: JourneysService
   ) {
     const session = randomUUID();
     (async () => {
@@ -270,81 +271,30 @@ export class CustomersService {
       ).exec();
     }
 
-    await this.dataSource.transaction(async (transactionManager) => {
-      // Already started (isEditable = false), dynamic (isDyanmic = true),push
-      // Not started (isEditable = true), dynamic (isDyanmic = true), push
-      const dynamicWkfs = await transactionManager.find(Workflow, {
-        where: {
-          owner: { id: account.id },
-          isDynamic: true,
-        },
-        relations: ['filter'],
-      });
-      for (let index = 0; index < dynamicWkfs.length; index++) {
-        const workflow = dynamicWkfs[index];
-        if (workflow.filter) {
-          if (
-            await this.audiencesHelper.checkInclusion(
-              ret,
-              workflow.filter.inclusionCriteria,
-              session
-            )
-          ) {
-            const audiences = await transactionManager.findBy(Audience, {
-              workflow: { id: workflow.id },
-            });
-
-            const primaryAudience = audiences.find(
-              (audience) => audience.isPrimary
-            );
-
-            await transactionManager.update(
-              Audience,
-              { owner: { id: account.id }, id: primaryAudience.id },
-              {
-                customers: primaryAudience.customers.concat(ret.id),
-              }
-            );
-          }
-        }
+    if (createdCustomer?.email) {
+      const monogoTransactionSession = await this.connection.startSession();
+      monogoTransactionSession.startTransaction();
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      try {
+        await this.journeysService.enrollCustomer(
+          account,
+          createdCustomer,
+          queryRunner,
+          monogoTransactionSession,
+          session
+        );
+      } catch (err) {
+        await monogoTransactionSession.abortTransaction();
+        await queryRunner.rollbackTransaction();
+        this.error(err, this.upsert.name, session, account.email);
+        throw err;
+      } finally {
+        await monogoTransactionSession.endSession();
+        await queryRunner.release();
       }
-      // Already started(isEditable = true), static(isDyanmic = false), don't push
-      // Not started(isEditable = false), static(isDyanmic = false), push
-      const staticWkfs = await transactionManager.find(Workflow, {
-        where: {
-          owner: { id: account.id },
-          isDynamic: false,
-        },
-        relations: ['filter'],
-      });
-      for (let index = 0; index < staticWkfs.length; index++) {
-        const workflow = staticWkfs[index];
-        if (workflow.filter) {
-          if (
-            await this.audiencesHelper.checkInclusion(
-              ret,
-              workflow.filter.inclusionCriteria,
-              session
-            )
-          ) {
-            const audiences = await transactionManager.findBy(Audience, {
-              workflow: { id: workflow.id },
-              isEditable: false,
-            });
-
-            const primaryAudience = audiences.find((item) => item.isPrimary);
-
-            await transactionManager.update(
-              Audience,
-              { owner: { id: account.id }, id: primaryAudience.id },
-              {
-                customers: primaryAudience.customers.concat(ret.id),
-              }
-            );
-          }
-        }
-      }
-    });
+    }
 
     return ret;
   }
@@ -754,6 +704,47 @@ export class CustomersService {
       { _id: id },
       newCustomer
     ).exec();
+
+    this.warn(
+      `Customer updated: ${JSON.stringify({
+        customer: newCustomer,
+        existingCustomer: customer,
+        replacementRes,
+      })}`,
+      this.update.name,
+      session,
+      account.id
+    );
+    if (!customer.email && newCustomer.email) {
+      const transactionSession = await this.connection.startSession();
+      transactionSession.startTransaction();
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      const updatedCustomerDocument = await this.findOne(account, id, session);
+      const updatedCustomer = new this.CustomerModel({
+        ...updatedCustomerDocument,
+      });
+      try {
+        await this.journeysService.enrollCustomer(
+          account,
+          updatedCustomer,
+          queryRunner,
+          transactionSession,
+          session
+        );
+        await transactionSession.commitTransaction();
+        await queryRunner.commitTransaction();
+      } catch (err) {
+        await transactionSession.abortTransaction();
+        await queryRunner.rollbackTransaction();
+        this.error(err, this.upsert.name, session, account.email);
+        throw err;
+      } finally {
+        await transactionSession.endSession();
+        await queryRunner.release();
+      }
+    }
 
     return replacementRes;
   }
@@ -1320,7 +1311,7 @@ export class CustomersService {
       );
 
       if (!correlation.found)
-        await this.workflowsService.enrollCustomer(
+        await this.journeysService.enrollCustomer(
           account,
           correlation.cust,
           queryRunner,

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
 import { CustomersProcessor } from './customers.processor';
@@ -17,6 +17,7 @@ import { AudiencesHelper } from '../audiences/audiences.helper';
 import { AudiencesModule } from '../audiences/audiences.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
 import { StepsModule } from '../steps/steps.module';
+import { JourneysModule } from '../journeys/journeys.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { StepsModule } from '../steps/steps.module';
     WorkflowsModule,
     StepsModule,
     TypeOrmModule.forFeature([Account]),
+    forwardRef(() => JourneysModule),
   ],
   controllers: [CustomersController],
   providers: [CustomersService, CustomersProcessor, AudiencesHelper],

@@ -655,6 +655,28 @@ export class TransitionProcessor extends WorkerHost {
       owner,
       customerID
     );
+
+    if (!customer) {
+      await lock.release();
+      this.warn(
+        `${JSON.stringify({ warning: 'Releasing lock' })}`,
+        this.handleMessage.name,
+        session,
+        owner.email
+      );
+      this.warn(
+        `${JSON.stringify({
+          warning: 'Customer not found',
+          customerID,
+          currentStep,
+        })}`,
+        this.handleCustomComponent.name,
+        session,
+        owner.email
+      );
+      return;
+    }
+
     const { _id, ownerId, workflows, journeys, ...tags } = customer.toObject();
     const filteredTags = cleanTagsForSending(tags);
     const sender = new MessageSender();
@@ -1506,7 +1528,7 @@ export class TransitionProcessor extends WorkerHost {
     const customer = await this.customersService.findById(owner, customerID);
     for (
       let conditionIndex = 0;
-      conditionIndex < currentStep.metadata.branches.length ?? 0;
+      conditionIndex < currentStep.metadata?.branches?.length ?? 0;
       conditionIndex++
     ) {
       const branch = currentStep.metadata.branches[conditionIndex];
@@ -1527,7 +1549,7 @@ export class TransitionProcessor extends WorkerHost {
           const attributeKey = attributes[attributeIndex].key;
           const attributeComparisonType =
             attributes[attributeIndex].comparisonType;
-          const customerAttribute = customer[attributeKey]
+          const customerAttribute = customer?.[attributeKey]
             ? customer[attributeKey].trim()
             : undefined;
 
@@ -1579,10 +1601,11 @@ export class TransitionProcessor extends WorkerHost {
       branch = conditionEvalutation.indexOf(true);
     }
 
-    const destinationStepId =
-      currentStep.metadata.branches.filter((branchItem) => {
-        return branchItem.index === branch;
-      })[0]?.destination ?? null;
+    const destinationStepId = currentStep.metadata?.destination
+      ? currentStep.metadata.destination
+      : currentStep.metadata.branches.filter((branchItem) => {
+          return branchItem.index === branch;
+        })[0]?.destination ?? null;
 
     const nextStep = destinationStepId
       ? await queryRunner.manager.findOne(Step, {
