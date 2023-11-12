@@ -88,6 +88,12 @@ services:
     networks:
       - laudspeaker_default
 
+  metabase:
+    image: public.ecr.aws/dolarapp/dockerhub/metabase/metabase:v0.47.1
+    restart: always
+    env_file:
+      - .env
+
 networks:
   laudspeaker_default:
     driver: bridge
