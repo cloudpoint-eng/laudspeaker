@@ -90,6 +90,8 @@ services:
 
   metabase:
     image: public.ecr.aws/dolarapp/dockerhub/metabase/metabase:v0.47.1
+    ports:
+      - "3000:3000"
     restart: always
     env_file:
       - .env
