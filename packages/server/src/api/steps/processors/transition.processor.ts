@@ -812,6 +812,28 @@ export class TransitionProcessor extends WorkerHost {
         );
         break;
       case TemplateType.SMS:
+        if (!customer.phPhoneNumber && !customer.phone) {
+          await lock.release();
+          this.warn(
+            `${JSON.stringify({ warning: 'Releasing lock' })}`,
+            this.handleMessage.name,
+            session,
+            owner.smsFrom
+          );
+
+          this.warn(
+            `${JSON.stringify({
+              warning: 'Customer does not have a phone number',
+              customerID,
+              currentStep,
+            })}`,
+            this.handleCustomComponent.name,
+            session,
+            owner.smsFrom
+          );
+          return;
+        }
+
         await this.webhooksService.insertClickHouseMessages(
           await sender.process({
             name: TemplateType.SMS,
