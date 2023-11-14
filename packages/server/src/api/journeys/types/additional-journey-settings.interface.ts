@@ -71,6 +71,18 @@ export enum MaxOptions {
   FiveHundredThousand = '500000',
 }
 
+export enum MaxPercentageOptions {
+  Ten = '10',
+  Fifteen = '15',
+  Twenty = '20',
+  TwentyFive = '25',
+  Thirty = '30',
+  ThirtyFive = '35',
+  Fourty = '40',
+  FourtyFive = '45',
+  Fifty = '50',
+}
+
 export interface JourneySettingsMaxUserEntries {
   enabled: boolean;
   maxEntries: MaxOptions;
@@ -83,10 +95,15 @@ export interface JourneySettingsMaxMessageSends {
   maxSendRate?: MaxOptions;
 }
 
+export interface JourneySettingsMaxPercentageUserGroup {
+  enabled: boolean;
+  maxPercentageUsers: MaxPercentageOptions;
+}
+
 export interface JourneySettings {
   tags: string[];
   quiteHours: JourneySettingsQuiteHours;
   maxEntries: JourneySettingsMaxUserEntries;
   maxMessageSends: JourneySettingsMaxMessageSends;
+  maxPercentageGroup: JourneySettingsMaxPercentageUserGroup;
 }
-

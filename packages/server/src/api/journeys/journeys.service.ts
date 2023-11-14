@@ -847,9 +847,40 @@ export class JourneysService {
         account.email
       );
 
-      const unenrolledCustomers = customers.filter(
+      let unenrolledCustomers = customers.filter(
         (customer) => customer.journeys.indexOf(journeyID) < 0
       );
+
+      if (journey?.journeySettings?.maxPercentageGroup.enabled) {
+        this.warn(
+          `maxPercentageGroup is enabled, ${journey.journeySettings.maxPercentageGroup.maxPercentageUsers}% of customers will be randomly picked`,
+          this.start.name,
+          session,
+          account.email
+        );
+
+        const percentageOfUsersToPick =
+          (Math.ceil(
+            Number(
+              journey.journeySettings.maxPercentageGroup.maxPercentageUsers
+            )
+          ) /
+            100) *
+          unenrolledCustomers.length;
+        const numberOfCustomersToPick = Math.max(1, percentageOfUsersToPick);
+        const randomlyPickedCustomers = unenrolledCustomers
+          .sort(() => 0.5 - Math.random())
+          .slice(0, numberOfCustomersToPick);
+
+        this.warn(
+          `${randomlyPickedCustomers.length} customers were randomly picked from ${unenrolledCustomers.length} total customers`,
+          this.start.name,
+          session,
+          account.email
+        );
+        unenrolledCustomers = randomlyPickedCustomers;
+      }
+
       await this.CustomerModel.updateMany(
         {
           _id: { $in: unenrolledCustomers.map((customer) => customer.id) },

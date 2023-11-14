@@ -408,6 +408,18 @@ export enum MaxOptions {
   FiveHundredThousand = "500000",
 }
 
+export enum MaxPercentageOptions {
+  Ten = "10",
+  Fifteen = "15",
+  Twenty = "20",
+  TwentyFive = "25",
+  Thirty = "30",
+  ThirtyFive = "35",
+  Fourty = "40",
+  FourtyFive = "45",
+  Fifty = "50",
+}
+
 interface JourneySettingsMaxUserEntries {
   enabled: boolean;
   maxEntries: MaxOptions;
@@ -420,11 +432,17 @@ interface JourneySettingsMaxMessageSends {
   maxSendRate?: MaxOptions;
 }
 
+interface JourneySettingsMaxPercentageUserGroup {
+  enabled: boolean;
+  maxPercentageUsers: MaxPercentageOptions;
+}
+
 export interface JourneySettings {
   tags: string[];
   quiteHours: JourneySettingsQuiteHours;
   maxEntries: JourneySettingsMaxUserEntries;
   maxMessageSends: JourneySettingsMaxMessageSends;
+  maxPercentageGroup: JourneySettingsMaxPercentageUserGroup;
 }
 
 interface FlowBuilderState {
@@ -513,6 +531,10 @@ export const defaultJourneySettings = {
     enabled: false,
     maxSendRate: undefined,
     maxUsersReceive: undefined,
+  },
+  maxPercentageGroup: {
+    enabled: false,
+    maxPercentageUsers: MaxPercentageOptions.Ten,
   },
 };
 
@@ -1211,6 +1233,12 @@ const flowBuilderSlice = createSlice({
     ) {
       state.journeySettings.maxMessageSends = action.payload;
     },
+    setMaxPercentageGroup(
+      state,
+      action: PayloadAction<JourneySettingsMaxPercentageUserGroup>
+    ) {
+      state.journeySettings.maxPercentageGroup = action.payload;
+    },
     clearSidePanelError(state) {
       state.sidePanelErrors = {};
     },
@@ -1404,6 +1432,7 @@ export const {
   setJourneySettingsMaxEntries,
   setJourneySettingsQuiteHours,
   setMaxMessageSends,
+  setMaxPercentageGroup,
   setAvailableTags,
 } = flowBuilderSlice.actions;
 
