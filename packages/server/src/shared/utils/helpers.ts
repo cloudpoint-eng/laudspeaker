@@ -23,3 +23,26 @@ export const cleanTagsForSending = (obj) => {
   }
   return obj;
 };
+
+export const stripPhoneNumber = (phoneNumber: string): string => {
+  phoneNumber = phoneNumber?.trim();
+
+  if (!phoneNumber) {
+    return phoneNumber;
+  }
+
+  if (!phoneNumber || phoneNumber.startsWith('+')) {
+    return phoneNumber;
+  }
+
+  // NOTE: Assune this is for Malaysian number if start with 0
+  if (phoneNumber[0] === '0') {
+    phoneNumber = '+6' + phoneNumber;
+  }
+
+  if (!phoneNumber.startsWith('+')) {
+    phoneNumber = '+' + phoneNumber;
+  }
+
+  return phoneNumber;
+};

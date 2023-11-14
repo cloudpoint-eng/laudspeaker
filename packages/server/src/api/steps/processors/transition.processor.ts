@@ -26,7 +26,10 @@ import {
 } from '@/api/webhooks/webhooks.service';
 import { TemplatesService } from '@/api/templates/templates.service';
 import { CustomersService } from '@/api/customers/customers.service';
-import { cleanTagsForSending } from '../../../shared/utils/helpers';
+import {
+  cleanTagsForSending,
+  stripPhoneNumber,
+} from '../../../shared/utils/helpers';
 import {
   Customer,
   CustomerDocument,
@@ -848,7 +851,7 @@ export class TransitionProcessor extends WorkerHost {
               template.smsText,
               filteredTags
             ),
-            to: customer.phPhoneNumber || customer.phone,
+            to: stripPhoneNumber(customer.phPhoneNumber || customer.phone),
             token: owner.smsAuthToken,
             trackingEmail: email,
           })
