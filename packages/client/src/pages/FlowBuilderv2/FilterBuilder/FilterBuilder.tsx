@@ -1865,35 +1865,36 @@ const FilterBuilder: FC<FilterBuilderProps> = ({
             </div>
           </div>
           {/* @ts-ignore */}
-          {!settings?.query?.isSubBuilderChild &&
+          {/* {!settings?.query?.isSubBuilderChild &&
             (settings.query.type === QueryType.ALL ||
-              i === settings.query.statements.length - 1) && (
-              <div className="relative flex items-center py-[8.45px] max-w-[360px] px-[11.45px] rounded bg-[#F3F4F6]">
-                <div
-                  className="mr-[2px] min-w-[15px] min-h-[15px] border-[1px] border-[#6366F1] rounded-full"
-                  // TODO: update to render on BE data
-                  style={{
-                    background: `
-                  conic-gradient(
-                    #6366F1 ${90}%,
-                    white ${90}% 100%
-                  )
-                `,
-                  }}
-                />
-                {/* TODO: update to render on BE data */}
-                <span className="text-[#6366F1] font-roboto font-semibold text-[14px] leading-[22px]">
-                  90%
-                </span>
-                <span className="ml-[6px] text-[#4B5563] font-roboto text-[14px] leading-[22px]">
-                  of users estimated reached ≈{" "}
-                  {Intl.NumberFormat("en", { notation: "compact" }).format(
-                    21567
-                  )}
-                </span>
-                <div className="absolute top-full left-[25px] z-[0] h-[10px] w-[1px] bg-[#E5E7EB]" />
-              </div>
-            )}
+              i === settings.query.statements.length - 1) && ( 
+              // <div className="relative flex items-center py-[8.45px] max-w-[360px] px-[11.45px] rounded bg-[#F3F4F6]">
+              //   <div
+              //     className="mr-[2px] min-w-[15px] min-h-[15px] border-[1px] border-[#6366F1] rounded-full"
+              //     // TODO: update to render on BE data
+              //     style={{
+              //       background: `
+              //     conic-gradient(
+              //       #6366F1 ${90}%,
+              //       white ${90}% 100%
+              //     )
+              //   `,
+              //     }}
+              //   />*/}
+          {/* TODO: update to render on BE data */}
+          {/*
+              //   <span className="text-[#6366F1] font-roboto font-semibold text-[14px] leading-[22px]">
+              //     90%
+              //   </span>
+              //   <span className="ml-[6px] text-[#4B5563] font-roboto text-[14px] leading-[22px]">
+              //     of users estimated reached ≈{" "}
+              //     {Intl.NumberFormat("en", { notation: "compact" }).format(
+              //       21567
+              //     )}
+              //   </span>
+              //   <div className="absolute top-full left-[25px] z-[0] h-[10px] w-[1px] bg-[#E5E7EB]" />
+              // </div>
+            // )}*/}
         </React.Fragment>
       ))}
       <div className="flex flex-nowrap gap-[10px]">

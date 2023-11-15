@@ -175,7 +175,7 @@ const FlowBuilderHeader = () => {
             </button>
           )}
 
-          <div className="relative [&_.whitespace-nowrap]:hover:block">
+          {/* <div className="relative [&_.whitespace-nowrap]:hover:block">
             <button
               className={`${
                 devModeState.status === ConnectionStatus.Connected
@@ -214,7 +214,7 @@ const FlowBuilderHeader = () => {
                 Dev Mode help you to test the journey with your localhost
               </div>
             )}
-          </div>
+          </div> */}
           {devModeState.status !== ConnectionStatus.Connected && (
             <Button
               type={ButtonType.PRIMARY}
