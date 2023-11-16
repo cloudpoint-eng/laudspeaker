@@ -865,6 +865,7 @@ export class TransitionProcessor extends WorkerHost {
             audienceId: stepID,
             customerId: customerID,
             accountId: owner.id,
+            customerEmail: customer.phEmail ? customer.phEmail : customer.email,
           });
         }
         break;

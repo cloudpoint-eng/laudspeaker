@@ -136,12 +136,30 @@ export class WebhooksProcessor extends WorkerHost {
       )
     );
 
+    if (
+      (typeof body === 'string' &&
+        body.startsWith('{') &&
+        body.endsWith('}')) ||
+      body == ''
+    ) {
+      const bodyObj = JSON.parse(body || '{}');
+      bodyObj.customerEmail = job.data.customerEmail;
+      body = JSON.stringify(bodyObj);
+    }
+
     let retriesCount = 0;
     let success = false;
 
     this.logger.debug(
-      'Sending webhook requst: \n' +
-        JSON.stringify(template.webhookData, null, 2)
+      'Sending webhook request: \n' +
+        JSON.stringify(
+          {
+            ...template.webhookData,
+            body,
+          },
+          null,
+          2
+        )
     );
     let error: string | null = null;
     while (!success && retriesCount < retries) {
