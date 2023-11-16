@@ -1575,11 +1575,16 @@ export class CustomersService {
       .limit(20)
       .exec();
 
-    return attributes.map((el) => ({
-      key: el.key,
-      type: el.type,
-      isArray: el.isArray,
-    }));
+    return (
+      attributes
+        .map((el) => ({
+          key: el.key,
+          type: el.type,
+          isArray: el.isArray,
+        }))
+        // @ts-ignore
+        .filter((el) => el.type !== 'undefined')
+    );
   }
 
   public async getCustomersFromStepStatsByEvent(
