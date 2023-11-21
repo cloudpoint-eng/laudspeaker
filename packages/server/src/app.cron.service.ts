@@ -413,11 +413,12 @@ export class CronService {
                 session
               );
               let branch;
+
               if (steps[i].type === StepType.WAIT_UNTIL_BRANCH) {
-                if (!steps[i].metadata.timeBranch) {
+                if (!steps[i].metadata || !steps[i].metadata?.timeBranch) {
                   await lock.release();
                   this.warn(
-                    `${JSON.stringify({ warning: 'Releasing lock'})}`,
+                    `${JSON.stringify({ warning: 'Releasing lock' })}`,
                     this.handleTimeBasedSteps.name,
                     session
                   );
