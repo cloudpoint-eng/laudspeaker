@@ -684,6 +684,31 @@ export class TransitionProcessor extends WorkerHost {
     const filteredTags = cleanTagsForSending(tags);
     const sender = new MessageSender();
 
+    if (
+      !(customer as any)?.isContactable ||
+      ((customer as any)?.isContactable &&
+        (customer as any)?.isContactable.toLowerCase() == 'false')
+    ) {
+      await lock.release();
+      this.warn(
+        `${JSON.stringify({ warning: 'Releasing lock' })}`,
+        this.handleMessage.name,
+        session,
+        owner.email
+      );
+      this.warn(
+        `${JSON.stringify({
+          warning: 'Customer is not contactable',
+          customerID,
+          currentStep,
+        })}`,
+        this.handleCustomComponent.name,
+        session,
+        owner.email
+      );
+      return;
+    }
+
     switch (template.type) {
       case TemplateType.EMAIL:
         if (!customer.phEmail && !customer.email) {
@@ -707,6 +732,31 @@ export class TransitionProcessor extends WorkerHost {
           );
           return;
         }
+
+        if (
+          (customer as any)?.emailValidity &&
+          (customer as any)?.emailValidity.toLowerCase() == 'false'
+        ) {
+          await lock.release();
+          this.warn(
+            `${JSON.stringify({ warning: 'Releasing lock' })}`,
+            this.handleMessage.name,
+            session,
+            owner.email
+          );
+          this.warn(
+            `${JSON.stringify({
+              warning: 'Customer email is invalid',
+              customerID,
+              currentStep,
+            })}`,
+            this.handleCustomComponent.name,
+            session,
+            owner.email
+          );
+          return;
+        }
+
         if (owner.emailProvider === 'free3') {
           if (owner.freeEmailsCount === 0)
             throw new HttpException(
@@ -833,6 +883,30 @@ export class TransitionProcessor extends WorkerHost {
             this.handleCustomComponent.name,
             session,
             owner.smsFrom
+          );
+          return;
+        }
+
+        if (
+          (customer as any)?.phoneValidity &&
+          (customer as any)?.phoneValidity.toLowerCase() == 'false'
+        ) {
+          await lock.release();
+          this.warn(
+            `${JSON.stringify({ warning: 'Releasing lock' })}`,
+            this.handleMessage.name,
+            session,
+            owner.email
+          );
+          this.warn(
+            `${JSON.stringify({
+              warning: 'Customer phone number is invalid',
+              customerID,
+              currentStep,
+            })}`,
+            this.handleCustomComponent.name,
+            session,
+            owner.email
           );
           return;
         }
