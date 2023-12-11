@@ -99,6 +99,10 @@ export class AudiencesHelper {
           return false;
         }
 
+        if (typeof custAttr === 'string') {
+          return custAttr.toLowerCase() === checkVal.toLowerCase();
+        }
+
         return custAttr == checkVal;
       case 'is not equal to':
         return custAttr != checkVal;

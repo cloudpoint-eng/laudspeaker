@@ -1026,30 +1026,30 @@ export class TransitionProcessor extends WorkerHost {
       lock: { mode: 'pessimistic_write' },
     });
 
-    if (
-      !_.find(currentStep.customers, (customer) => {
-        return JSON.parse(customer).customerID === customerID;
-      })
-    ) {
-      await lock.release();
-      this.warn(
-        `${JSON.stringify({ warning: 'Releasing lock' })}`,
-        this.handleStart.name,
-        session,
-        owner.email
-      );
-      this.warn(
-        `${JSON.stringify({
-          warning: 'Customer not in step',
-          customerID,
-          currentStep,
-        })}`,
-        this.handleCustomComponent.name,
-        session,
-        owner.email
-      );
-      return;
-    }
+    // if (
+    //   !_.find(currentStep.customers, (customer) => {
+    //     return JSON.parse(customer).customerID === customerID;
+    //   })
+    // ) {
+    //   await lock.release();
+    //   this.warn(
+    //     `${JSON.stringify({ warning: 'Releasing lock' })}`,
+    //     this.handleStart.name,
+    //     session,
+    //     owner.email
+    //   );
+    //   this.warn(
+    //     `${JSON.stringify({
+    //       warning: 'Customer not in step',
+    //       customerID,
+    //       currentStep,
+    //     })}`,
+    //     this.handleStart.name,
+    //     session,
+    //     owner.email
+    //   );
+    //   return;
+    // }
 
     const nextStep = await queryRunner.manager.findOne(Step, {
       where: {
