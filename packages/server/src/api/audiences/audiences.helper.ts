@@ -119,9 +119,9 @@ export class AudiencesHelper {
       case 'after':
         return new Date(custAttr) > new Date(checkVal);
       case 'is greater than':
-        return custAttr > Number(checkVal);
+        return Number(custAttr) > Number(checkVal);
       case 'is less than':
-        return custAttr < Number(checkVal);
+        return Number(custAttr) < Number(checkVal);
       case 'memberof':
         if (!segmentData?.account) return false;
 
