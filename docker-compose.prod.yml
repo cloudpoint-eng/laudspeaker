@@ -87,6 +87,11 @@ services:
       - "9000:9000"
     networks:
       - laudspeaker_default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   metabase:
     image: my-metabase-with-clickhouse:v0.0.1
